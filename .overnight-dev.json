@@ -1,0 +1,8 @@
+{
+  "lintCommand": "uv run ruff check . --fix",
+  "testCommand": "uv run pytest tests/ -x --tb=short",
+  "autoFix": true,
+  "requireCoverage": false,
+  "conventionalCommits": true,
+  "commitScopes": ["core", "runtime", "improvement", "cli", "docs", "tests"]
+}

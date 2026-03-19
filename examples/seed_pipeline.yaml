@@ -1,0 +1,48 @@
+# Detrix Example Pipeline
+#
+# A generic 3-step data processing pipeline demonstrating
+# DAG execution, caching, and audit logging.
+#
+# Run via CLI:
+#   detrix run examples/seed_pipeline.yaml -v
+
+name: example-pipeline
+version: "1.0"
+description: >
+  Example pipeline: load data, process it, summarize results.
+  Replace step functions with your own domain logic.
+
+metadata:
+  author: detrix
+  domain: example
+
+steps:
+  - id: load
+    name: "Load Data"
+    function: detrix.examples.steps.load_data
+    inputs: {}
+    outputs: [records, count]
+    retry:
+      max_attempts: 1
+
+  - id: process
+    name: "Process Records"
+    function: detrix.examples.steps.process_records
+    depends_on: [load]
+    inputs:
+      records: "$load.records"
+    outputs: [processed, stats]
+    retry:
+      max_attempts: 2
+      backoff_seconds: 0.5
+
+  - id: summarize
+    name: "Summarize Results"
+    function: detrix.examples.steps.summarize
+    depends_on: [process]
+    inputs:
+      processed: "$process.processed"
+      stats: "$process.stats"
+    outputs: [summary]
+    retry:
+      max_attempts: 1

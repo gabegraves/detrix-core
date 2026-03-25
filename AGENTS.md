@@ -1,5 +1,24 @@
 # Agent Instructions
 
+## Product Context
+
+Detrix is the infrastructure layer for reliable, self-improving AI agent pipelines. It wraps existing frameworks (LangGraph, LangChain, CrewAI, raw Python) — it is NOT a pipeline runner or LangGraph competitor.
+
+**Positioning rules for all agents:**
+- Never describe Detrix as "a pipeline framework" or "a DAG executor" — it is a governance + improvement runtime
+- Never position against LangGraph — position as the layer above it ("wraps any framework")
+- Always emphasize the four layers: Runtime/Governance, Memory, Improvement Loop, Domain Packs
+- The flywheel is the core story: every run → better local models → cheaper runs → more experiments → more training data
+- Lead with what's unique: persistent memory, self-improvement via traces→SFT/RL→promote, domain packs, local-first governance
+- AgentXRD (materials science, 9-phase pipeline, 71%→89% overnight) is the proof case, not the product
+
+**When writing copy, docs, or landing page content:**
+- One-liner: "Detrix is autoresearch for domain-specific agent pipelines"
+- Hero framing: "Your agents work in demos. Detrix makes them work in production."
+- Never say "No YAML to learn" — the architecture uses YAML-as-code. The agent-driven `detrix init` generates it, but YAML is a feature, not a secret.
+- Quickstart: `detrix init → detrix wrap <script.py> → detrix history`
+- Always include "Works with: LangGraph, LangChain, CrewAI, Python" to kill the competitor framing
+
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
 ## Quick Reference

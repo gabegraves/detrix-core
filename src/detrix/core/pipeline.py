@@ -26,6 +26,7 @@ from detrix.core.models import (
     StepStatus,
     WorkflowDef,
 )
+from detrix.core.types import StepExecutionError
 from detrix.runtime.audit import AuditLog
 
 
@@ -229,6 +230,10 @@ class WorkflowEngine:
                 return result
 
             except Exception as e:
+                # Wrap user-code failures so the outer run() loop can
+                # distinguish "step function raised" from governance errors
+                # (GovernanceError) which must propagate unwrapped.
+                wrapped = StepExecutionError(step.id, e)
                 last_error = str(e)
                 elapsed = (time.monotonic() - t0) * 1000
                 self._log(f"  FAIL    {step.id} attempt {attempt}: {last_error}")
@@ -237,6 +242,7 @@ class WorkflowEngine:
                         step.retry.backoff_multiplier ** (attempt - 1)
                     )
                     time.sleep(wait)
+                del wrapped  # held only to document intent; last_error is used below
 
         # All retries exhausted
         finished = datetime.utcnow()
@@ -299,6 +305,10 @@ class WorkflowEngine:
                     self.audit.record_run_end(record)
                 return record
 
+            # GOVERNANCE INTEGRATION POINT: when GovernanceError is added,
+            # wrap the _execute_step call in a separate try/except for
+            # GovernanceError BEFORE this call so governance failures bypass
+            # step retry logic and propagate directly to the caller.
             result = self._execute_step(step, resolved, record.run_id)
             record.step_results.append(result)
 

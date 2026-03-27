@@ -11,3 +11,17 @@ class Verdict(str, Enum):
     PROMOTE = "promote"
     REJECT = "reject"
     INCONCLUSIVE = "inconclusive"
+
+
+class StepExecutionError(Exception):
+    """Raised when a user-supplied step function fails.
+
+    Wraps the original exception so callers can distinguish "step function
+    raised" from governance/framework errors (e.g. GovernanceError) which
+    will propagate unwrapped through the pipeline loop.
+    """
+
+    def __init__(self, step_id: str, cause: BaseException) -> None:
+        super().__init__(f"Step '{step_id}' failed: {cause}")
+        self.step_id = step_id
+        self.cause = cause

@@ -28,6 +28,7 @@ from detrix.core.models import (
 )
 from detrix.core.types import StepExecutionError
 from detrix.runtime.audit import AuditLog
+from detrix.runtime.langfuse_observer import LangfuseObserver, WorkflowObserver
 
 
 # ---------------------------------------------------------------------------
@@ -136,11 +137,13 @@ class WorkflowEngine:
         self,
         cache: Optional[StepCache] = None,
         audit: Optional[AuditLog] = None,
+        observer: Optional[WorkflowObserver] = None,
         output_dir: str = "outputs/workflow",
         verbose: bool = False,
     ):
         self.cache = cache
         self.audit = audit
+        self.observer = observer if observer is not None else LangfuseObserver()
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.verbose = verbose
@@ -167,6 +170,8 @@ class WorkflowEngine:
     ) -> StepResult:
         """Execute a single step with retry, caching, and audit."""
 
+        self.observer.on_step_start(run_id=run_id, step=step, inputs=inputs)
+
         # Check cache
         if self.cache:
             cached = self.cache.get(step.id, inputs)
@@ -184,6 +189,7 @@ class WorkflowEngine:
                     output_data=cached,
                     cached=True,
                 )
+                self.observer.on_step_end(run_id=run_id, step=step, result=result)
                 if self.audit:
                     self.audit.record_step(run_id, result)
                 return result
@@ -225,6 +231,7 @@ class WorkflowEngine:
                     output_data=output,
                     attempt=attempt,
                 )
+                self.observer.on_step_end(run_id=run_id, step=step, result=result)
                 if self.audit:
                     self.audit.record_step(run_id, result)
                 return result
@@ -256,6 +263,7 @@ class WorkflowEngine:
             error=last_error,
             attempt=step.retry.max_attempts,
         )
+        self.observer.on_step_end(run_id=run_id, step=step, result=result)
         if self.audit:
             self.audit.record_step(run_id, result)
         return result
@@ -276,6 +284,11 @@ class WorkflowEngine:
         )
         if self.audit:
             self.audit.record_run_start(record)
+        self.observer.on_workflow_start(
+            run_id=record.run_id,
+            workflow=workflow,
+            inputs=inputs,
+        )
 
         self._log(f"RUN {workflow.name} v{workflow.version} [{record.run_id}]")
 
@@ -301,9 +314,7 @@ class WorkflowEngine:
                         error=str(e),
                     )
                 )
-                if self.audit:
-                    self.audit.record_run_end(record)
-                return record
+                return self._finish_run(record)
 
             # GOVERNANCE INTEGRATION POINT: when GovernanceError is added,
             # wrap the _execute_step call in a separate try/except for
@@ -316,9 +327,7 @@ class WorkflowEngine:
                 self._log(f"  ABORT   workflow failed at step {step_id}")
                 record.status = StepStatus.FAILED
                 record.finished_at = datetime.utcnow()
-                if self.audit:
-                    self.audit.record_run_end(record)
-                return record
+                return self._finish_run(record)
 
             context[step_id] = result.output_data
 
@@ -328,9 +337,7 @@ class WorkflowEngine:
             f"DONE  {workflow.name} [{record.run_id}] "
             f"{record.duration_ms:.0f}ms"
         )
-        if self.audit:
-            self.audit.record_run_end(record)
-        return record
+        return self._finish_run(record)
 
     def run_from_yaml(
         self,
@@ -340,3 +347,10 @@ class WorkflowEngine:
         """Parse a YAML file and execute the workflow."""
         workflow = parse_workflow(yaml_path)
         return self.run(workflow, inputs)
+
+    def _finish_run(self, record: RunRecord) -> RunRecord:
+        if self.audit:
+            self.audit.record_run_end(record)
+        self.observer.on_workflow_end(record=record)
+        self.observer.flush()
+        return record

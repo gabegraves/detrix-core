@@ -68,6 +68,162 @@ My current assessment is:
 
 ## What is actually useful for Detrix
 
+## Exact methodology to yoink for Detrix
+
+This is the exact method worth stealing, adapted to Detrix and stripped of repo-specific UI concerns.
+
+### The method
+
+1. **Observe first, do not trust first**
+   - Instrument every workflow run and step before enforcement.
+   - In Detrix this maps to `WorkflowObserver` / `LangfuseObserver`.
+   - Goal: build a run ledger of what the agent attempted, what tools or phases ran, and what artifacts were produced.
+
+2. **Turn every action into a policy decision**
+   - Before a step is allowed to proceed, run it through a deterministic policy layer.
+   - This policy is not a prompt; it is code.
+   - Inputs:
+     - step metadata
+     - run context
+     - artifact metadata
+     - execution intent
+   - Output:
+     - a typed verdict object
+   - In Detrix this should become `GovernanceGate -> VerdictContract`.
+
+3. **Use default-deny with explicit allow paths**
+   - The useful pattern from Claude Code is not "sandboxing" in the abstract. It is:
+     - explicit allowlist
+     - explicit deny patterns
+     - stripped environment
+     - bounded cwd / runtime
+     - rate limits
+     - audit logging
+   - Detrix should apply this to:
+     - shell/tool execution
+     - evaluator execution
+     - trace export
+     - memory sync
+     - model promotion actions
+
+4. **Persist every verdict as audit-grade evidence**
+   - Every gate result should be stored, not just the final pipeline output.
+   - Persist:
+     - decision
+     - evidence
+     - thresholds used
+     - config hash
+     - evaluator version
+     - input hash
+     - upstream run/step IDs
+   - This is the bridge from governance to training signal.
+   - In Detrix this belongs next to `runtime.audit`, `runtime.provenance`, and the run record.
+
+5. **Separate deterministic grading from learned grading**
+   - Claude Code’s good idea is layered judgment.
+   - Detrix should keep the stronger version:
+     - mechanical grader for structural/process correctness
+     - domain evaluator for physics/ground-truth correctness
+     - Haiku/LLM judge only as advisory synthesis
+   - Current mapping:
+     - `scoring.mechanical_grader`
+     - `scoring.haiku_grader`
+     - future domain evaluator + governance gate stack
+
+6. **Run risky or parallel work in isolated workspaces**
+   - The worktree/session pattern is the right operational move.
+   - For Detrix, that means:
+     - one experiment lane, one isolated workspace
+     - stable run-to-workspace provenance
+     - deterministic cleanup
+     - no shared mutable scratch state between concurrent jobs
+   - This matters most for overnight improvement, challenger evaluation, and agent-team work.
+
+7. **Make extensions declarative, not hardcoded**
+   - Claude Code’s skills/plugins approach is worth copying as a methodology.
+   - For Detrix, that should become domain packs / evaluation packs with schema-defined:
+     - gates
+     - evaluators
+     - prompts
+     - memory policy
+     - trace extraction rules
+     - promotion thresholds
+   - The key is that Detrix should load behavior from pack metadata, not branch on domain names in core runtime code.
+
+8. **Sync memory only after secret screening and scope checks**
+   - Shared memory is useful only if it is scoped and scrubbed.
+   - Detrix should treat memory as:
+     - session memory
+     - project/domain memory
+     - shared/team memory
+   - Promotion to a wider scope must pass:
+     - secret scan
+     - provenance checks
+     - schema validation
+
+9. **Promote by policy, not by vibes**
+   - A challenger should only promote when:
+     - it beats incumbent metrics
+     - required metrics are present
+     - governance gates did not regress
+     - evaluation provenance is complete
+   - This fits directly into `improvement.promoter`.
+
+10. **Train only on traces that survived validation**
+    - This is the most important methodological takeaway.
+    - Do not train on "interesting" traces.
+    - Train on:
+      - traces that passed deterministic gates
+      - traces whose outputs survived domain evaluation
+      - traces with complete provenance
+      - optionally, human-labeled corrections
+    - That is the Detrix moat.
+
+### The Detrix-native sequence
+
+The clean-room sequence should be:
+
+`observe -> gate -> audit -> score -> isolate -> promote -> learn`
+
+More concretely:
+
+1. `WorkflowObserver` records run + step events
+2. each step emits artifacts + metadata
+3. `GovernanceGate` evaluates those artifacts and emits `VerdictContract`
+4. audit/provenance store persists the verdict
+5. scoring layer computes:
+   - mechanical grade
+   - domain grade
+   - advisory LLM grade
+6. promotion logic checks incumbent vs challenger under required-metric policy
+7. only gate-passed traces enter the training/export set
+
+### What to build next if we follow this method
+
+In order:
+
+1. `detrix.execution.policy`
+   - allow/deny rules
+   - env scrubbing
+   - bounded execution context
+   - rate limiting
+
+2. `detrix.core.verdict` and `detrix.core.gate`
+   - implement the governance spec types
+
+3. audit/provenance expansion
+   - persist verdicts, hashes, evaluator versions, thresholds
+
+4. domain-pack schema
+   - declarative gate/evaluator registration
+
+5. trace eligibility filter
+   - only gate-passed, provenance-complete traces become training data
+
+### One-sentence version
+
+The exact methodology to yoink is: **treat the agent as an untrusted producer, force every meaningful action through deterministic policy gates, persist the verdicts as audit-grade training signal, and only let validated traces flow into promotion and learning.**
+
 ### 1. Governance and permissioning patterns
 
 Strong fit for Detrix:

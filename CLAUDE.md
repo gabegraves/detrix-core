@@ -190,6 +190,33 @@ Deep 4-agent research across YC startups, big providers, OSS landscape, and moat
 
 **False moats to avoid:** generic trace-to-fine-tune (commodity), open-source core/paid cloud (gets forked), data exclusivity partnerships (renegotiable).
 
+### Open-source strategy: Framework open, domain packs proprietary
+
+The code is commodity. The domain intelligence is the moat. Open-source the delivery mechanism, keep the domain physics proprietary. MySQL/MongoDB model.
+
+**Open (Apache-2.0) — `detrix-core`:**
+- State machine orchestrator (Stripe Blueprints pattern)
+- GovernanceGate ABC, DomainEvaluator ABC, VerdictContract
+- Scoring bridge (verdicts → GovernedTrajectory → SFT export format)
+- Adapter pattern (FSM, raw Python, LangGraph connectors)
+- Benchmark runner CLI
+- Harness optimization outer loop scaffold
+
+**Proprietary — domain packs (e.g., `detrix-xrd`, `detrix-quant`):**
+- Calibrated gate thresholds (tuned from 1000+ real analyses, not guessable)
+- Domain evaluator internals (physics rules: space group constraints, thermal parameter bounds, site occupancy rules, convergence diagnostics)
+- Digital twin scenarios and labeled evaluation sets
+- Scored trace corpora from real pipelines
+- Pre-trained domain-tuned models (LoRA weights)
+
+**Why this is malus-proof (can't be recreated by AI reading docs):**
+1. Gate STRUCTURE is open (state machine — anyone can build it). Gate CONTENT is domain physics (requires domain expertise to build AND calibrate). A cloned copy gets gates that don't know what to check.
+2. Calibrated thresholds require running the experiments. Uncalibrated thresholds either block everything (useless) or pass everything (dangerous). Can't be fast-forwarded from documentation.
+3. The benchmark IS the defense. Clones that evaluate against DetrixBench validate Detrix's standard-setting position. Every competitor benchmarking against you reinforces your position.
+4. Evidence velocity > cloning velocity. By the time someone reads the paper and clones the framework, you've published the next set of results from 24/7 local GPU experiments.
+
+**What this means for the repo:** `src/detrix/core/` and `src/detrix/runtime/` are open. Domain pack code lives in separate private repos (`detrix-xrd/`, `detrix-quant/`). The open core attracts contributors and establishes the standard. The domain packs generate revenue.
+
 **Hardware advantage:** Local 2x RTX 6000 Pro + 3x 3090 + 512GB RAM = zero-marginal-cost improvement loop. Run 60 SFT experiments for the cost of 1 cloud run. Pre-build XRD Quality Benchmark from crystallographic databases. Demo on-prem for regulated customers.
 
 **Build order correction:** Domain evaluator → governance gates → scored traces → training loop. NOT generic runtime → domain packs later.

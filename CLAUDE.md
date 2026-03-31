@@ -5,15 +5,38 @@ Make domain-specific agents reliable enough to deploy and cheap enough to scale.
 ## Design Doc (READ FIRST)
 
 **Full strategy, competitive analysis, architecture, and build plan:**
-`~/.gstack/projects/gabegraves-detrix-core/gabriel-main-design-20260324-204500.md`
+`~/.gstack/projects/gabegraves-detrix-core/gabriel-main-design-20260331-022621.md`
 
-This design doc is the source of truth for positioning, monetization, competitive landscape, and build order. Updated 2026-03-24 via YC office hours session with Codex cross-model review and deep audits of AgentXRD_v2 + mission-control.
+This design doc is the source of truth for positioning, monetization, competitive landscape, and build order. Updated 2026-03-31 via YC office hours session with Codex cross-model review and market research.
 
 ## Mission
 
 Make domain-specific agents reliable enough to deploy and cheap enough to scale.
 
-Detrix is a self-improving runtime that observes agent pipelines, enforces deterministic quality gates, and trains better models overnight from governance-scored traces. You define what "correct" means for your domain. Detrix observes your pipeline running, discovers where it fails, calibrates gates from real data, then improves the agent automatically. It wraps existing frameworks (LangGraph, LangChain, CrewAI, raw Python) — it does not replace them. Domain packs (starting with AgentXRD for materials science) prove the stack works.
+## Identity (resolved 2026-03-31, Claude + Codex consensus)
+
+Detrix is a **reliability and improvement runtime for domain-specific agents**. It validates outputs with domain physics, blocks bad results, learns from failures, and improves both the harness and the model over time. Three framings for three audiences:
+
+| Audience | Framing | Example |
+|----------|---------|---------|
+| Research / papers | RLVR environment with dual-axis improvement | "Domain-physics verifiable rewards for agent training" |
+| Technical buyers / ML engineers | Self-improving agent harness with domain physics gates | "Give me your agent on GPT-5, I give you back a 7B at 1/100th cost with quality guarantees" |
+| Acquirers / investors / elevator | Reliability and improvement runtime | "We turn unreliable domain agents into governed systems you can trust, and make them cheaper every week" |
+
+**In plain English:** Detrix sits around a specialist AI agent, checks whether each answer is actually correct using hard domain tests, blocks bad outputs, records what failed, and uses that evidence to make the workflow and the underlying model better over time. It turns a clever but unreliable agent into a governed system that can be trusted in a real domain, and it keeps reducing cost by teaching smaller models to do the validated work.
+
+**How reliability works (the closed loop):**
+1. Agent output → deterministic domain evaluator scores it (not LLM, not human)
+2. Bad output → BLOCKED (not "kind of okay")
+3. Short loop → harness changes prevent same failure class from recurring (hours)
+4. Long loop → validated traces train cheaper model via SFT/DPO (overnight)
+5. Promotion gated → new harness or model ships ONLY if it beats incumbent on held-out domain evals
+
+**What Detrix is NOT:** a methodology company. If you call it a methodology company, you are telling acquirers they can copy the idea and skip buying you. It is a product company with a proprietary method. The method is the moat. The product is the thing being bought.
+
+**Internally, the engine is RLVR** (Reinforcement Learning with Verifiable Rewards). Domain physics evaluation IS the verifiable reward. Two optimization targets in the same environment: harness code (Axis 1, hours) and model weights (Axis 2, overnight). DeepSeek-R1 proved RLVR > RLHF for math/code. Detrix extends RLVR to domains where the verifier runs physics, not test cases.
+
+Detrix wraps existing frameworks (LangGraph, LangChain, CrewAI, raw Python) — it does not replace them. Unsloth/ART handle training execution (complementary, already in stack). Domain packs (starting with AgentXRD for materials science) prove the stack works.
 
 ## Positioning (READ THIS SECOND)
 

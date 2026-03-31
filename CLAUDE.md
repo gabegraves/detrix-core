@@ -77,8 +77,44 @@ Detrix wraps existing frameworks (LangGraph, LangChain, CrewAI, raw Python) — 
 - **vs TensorZero, autoresearch** (open-source MIT/Apache-2.0): Component sources — cherry-pick what works. TensorZero: LLM gateway patterns, experimentation framework. Autoresearch: propose-train-evaluate loop, single-GPU approach.
 - **Vertical expansion test:** "Can I write a Python function that returns a float measuring correctness using only the output and domain computation — no LLM, no human?" If yes → Detrix territory. If no → Cascade territory. Walk away.
 
+### Reliability pattern: Stripe Blueprints + Domain Physics Gates
+
+**How Stripe ensures agent reliability (Minions, Feb 2026):** A Blueprint is a state machine where deterministic code nodes alternate with agentic LLM nodes. The orchestrator runs deterministic nodes unconditionally — the LLM never decides whether to run a gate. The agent cannot skip, override, or negotiate. This is structural enforcement, not policy.
+
+Sources: [Stripe Dev Blog Part 1](https://stripe.dev/blog/minions-stripes-one-shot-end-to-end-coding-agents) (Feb 9 2026), [Part 2](https://stripe.dev/blog/minions-stripes-one-shot-end-to-end-coding-agents-part-2) (Feb 19 2026). Not open-source — internal system built on a fork of Goose (Block, MIT).
+
+**How Detrix applies the pattern:** Same structural enforcement, different gate content. Stripe's gates check code quality (lint, CI, PR format). Detrix's gates check domain physics (Rietveld R_wp, DFT convergence, backtest Sharpe). Anyone can build the state machine. Nobody else has the domain physics gates.
+
+```
+Detrix reliability loop (Stripe Blueprints + domain physics RLVR):
+
+[AGENTIC]  Agent runs step (e.g., XRD phase identification)
+      |
+[DET GATE] MetrologyGate: R_wp < threshold? Lattice params physical?
+      | PASS → continue          | FAIL → block + log trace
+[AGENTIC]  Agent runs next step (e.g., refinement)
+      |
+[DET GATE] RefinementQualityGate: convergence? chi-squared acceptable?
+      | PASS → continue          | FAIL → block + retry/escalate
+[AGENTIC]  Agent produces final output
+      |
+[DET GATE] ConfidenceGate: ensemble agreement? final verdict
+      | PASS → deliver           | FAIL → human review
+```
+
+**Five enforcement properties (borrowed from Stripe, extended for domain physics):**
+1. **Agent cannot skip gates** — orchestrator runs them unconditionally between agentic phases
+2. **Tool scoping per phase** — each agentic node gets only relevant tools (no access to output delivery before passing gates)
+3. **Bounded retries** — max N attempts before escalation to human review (no infinite loops)
+4. **Failed traces stored with full context** — exact input, output, score, failure mode → becomes RLVR training data
+5. **Terminal gate** — final output requires domain physics pass, never just LLM confidence
+
+**Why NOT hooks/middleware:** Hooks fire pre/post on each step but don't control flow. The agent can emit output before the hook fires. A state machine with structural gates guarantees no output propagates without passing the deterministic node. Hooks are advisory. Gates are structural. This is the key distinction.
+
+**Why NOT pipeline validators:** Too late. Pipeline validators post-process at the end. By then, bad intermediate results have already propagated through downstream steps, corrupting the trace. Step-level gates between agentic phases catch errors where they occur.
+
 ### Key differentiators:
-1. **Observer → Enforcer runtime** — attach to any pipeline, observe execution, calibrate gates from real data, then enforce. No uncalibrated blocking. Stripe Blueprints pattern (deterministic gates alternate with agentic phases) deployed via data-driven calibration, not upfront specification.
+1. **Observer → Enforcer runtime** — attach to any pipeline, observe execution, calibrate gates from real data, then enforce. No uncalibrated blocking. Stripe Blueprints pattern deployed via data-driven calibration, not upfront specification. Phase 1: observe and log verdicts. Phase 2: activate blocking on calibrated gates.
 2. **Deterministic-first governance** — if physics/math can verify it, always deterministic code, never LLM. AgentXRD_v2 already implements: metrology guard, quality gates, verdict contract, FSM pipeline. LLM-as-judge is advisory Tier 2 only.
 3. **Dual-axis self-improvement** — two improvement axes sharing one reward signal (domain physics evaluation):
    - **Axis 1: Harness optimization (hours, no GPU)** — Meta-Harness pattern (Lee, Nair, Zhang, Lee, Khattab, Finn 2026; https://yoonholee.com/meta-harness/). Coding agent proposes harness improvements (prompt construction, retrieval logic, memory management). Full execution traces as feedback (10M tokens/iter, not summaries — summaries actively hurt by compressing away causal information). Filesystem-as-feedback-channel: all prior candidates' source code, scores, and traces stored as flat files the proposer can browse via shell tools. Proposer: Claude Code / Codex initially, transition to local model once traces inform what's needed.

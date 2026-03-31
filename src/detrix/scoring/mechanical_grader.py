@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
 from detrix.scoring.types import ApproachGrade, PromptChange, SessionDigest
 
 
@@ -10,7 +9,7 @@ class FileEditHistory:
     """Tracks file modifications across prompts."""
 
     def __init__(self) -> None:
-        self.files: Dict[str, Dict[str, Any]] = {}
+        self.files: dict[str, dict[str, int]] = {}
 
     def record_edit(self, file_path: str, added: int, deleted: int) -> None:
         """Record a file edit."""
@@ -42,9 +41,9 @@ class FileEditHistory:
 
 
 def grade_prompts(
-    prompt_changes: List[PromptChange],
+    prompt_changes: list[PromptChange],
     consecutive_failure_threshold: int = 2,
-) -> Dict[int, ApproachGrade]:
+) -> dict[int, ApproachGrade]:
     """
     Grade prompts based on file edits, test results, and error patterns.
 
@@ -62,9 +61,9 @@ def grade_prompts(
     Returns:
         Dict mapping prompt_index to ApproachGrade
     """
-    grades: Dict[int, ApproachGrade] = {}
+    grades: dict[int, ApproachGrade] = {}
     file_history = FileEditHistory()
-    consecutive_failures: Dict[int, int] = {}  # track failures per file
+    consecutive_failures: dict[int, int] = {}  # track failures per file
 
     for change in prompt_changes:
         prompt_idx = change.prompt_index
@@ -117,8 +116,8 @@ def grade_prompts(
 
 def build_session_digest(
     session_id: str,
-    prompt_changes: List[PromptChange],
-    mechanical_grades: Dict[int, ApproachGrade],
+    prompt_changes: list[PromptChange],
+    mechanical_grades: dict[int, ApproachGrade],
 ) -> SessionDigest:
     """
     Build a compressed session digest for Haiku review.
@@ -136,7 +135,7 @@ def build_session_digest(
         for idx, grade in mechanical_grades.items()
         if grade == ApproachGrade.MAJOR_NEGATIVE
     ]
-    consecutive_failures: Dict[int, int] = {}
+    consecutive_failures: dict[int, int] = {}
 
     for change in prompt_changes:
         if change.test_failures > 0:

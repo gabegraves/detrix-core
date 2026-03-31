@@ -63,6 +63,7 @@ class StepResult(BaseModel):
     error: Optional[str] = None
     attempt: int = 1
     cached: bool = False
+    gate_verdict: Optional[Dict[str, Any]] = None
 
 
 class RunRecord(BaseModel):

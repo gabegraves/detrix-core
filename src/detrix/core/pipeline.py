@@ -10,14 +10,21 @@ import importlib
 import json
 import re
 import time
+from collections.abc import Callable
 from datetime import datetime
 from graphlib import TopologicalSorter
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from detrix.core.cache import StepCache, _stable_hash
+from detrix.core.governance import (
+    Decision,
+    GateContext,
+    GovernanceGate,
+    VerdictContract,
+)
 from detrix.core.models import (
     RetryConfig,
     RunRecord,
@@ -29,7 +36,6 @@ from detrix.core.models import (
 from detrix.core.types import StepExecutionError
 from detrix.runtime.audit import AuditLog
 from detrix.runtime.langfuse_observer import LangfuseObserver, WorkflowObserver
-
 
 # ---------------------------------------------------------------------------
 # YAML parsing
@@ -85,11 +91,11 @@ def _topo_order(steps: list[StepDef]) -> list[str]:
 
 
 def _resolve_inputs(
-    raw_inputs: Dict[str, str],
-    context: Dict[str, Dict[str, Any]],
-) -> Dict[str, Any]:
+    raw_inputs: dict[str, str],
+    context: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
     """Resolve $step.key references against completed step outputs."""
-    resolved: Dict[str, Any] = {}
+    resolved: dict[str, Any] = {}
     for key, val in raw_inputs.items():
         if isinstance(val, str):
             m = _VAR_RE.fullmatch(val)
@@ -112,14 +118,14 @@ def _resolve_inputs(
 # ---------------------------------------------------------------------------
 
 
-def _resolve_function(dotted_path: str) -> Callable:
+def _resolve_function(dotted_path: str) -> Callable[..., Any]:
     """Import a callable from a dotted path like 'mypackage.steps.process'."""
     parts = dotted_path.rsplit(".", 1)
     if len(parts) != 2:
         raise ValueError(f"Invalid function path: {dotted_path}")
     module_path, func_name = parts
     module = importlib.import_module(module_path)
-    func = getattr(module, func_name)
+    func = cast(Callable[..., Any], getattr(module, func_name))
     if not callable(func):
         raise TypeError(f"{dotted_path} is not callable")
     return func
@@ -135,9 +141,9 @@ class WorkflowEngine:
 
     def __init__(
         self,
-        cache: Optional[StepCache] = None,
-        audit: Optional[AuditLog] = None,
-        observer: Optional[WorkflowObserver] = None,
+        cache: StepCache | None = None,
+        audit: AuditLog | None = None,
+        observer: WorkflowObserver | None = None,
         output_dir: str = "outputs/workflow",
         verbose: bool = False,
     ):
@@ -147,17 +153,22 @@ class WorkflowEngine:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.verbose = verbose
-        self._registry: Dict[str, Callable] = {}
+        self._registry: dict[str, Callable[..., Any]] = {}
+        self._gates: dict[str, GovernanceGate] = {}
 
-    def register(self, name: str, func: Callable) -> None:
+    def register(self, name: str, func: Callable[..., Any]) -> None:
         """Register a step function by name (alternative to dotted imports)."""
         self._registry[name] = func
+
+    def register_gate(self, step_id: str, gate: GovernanceGate) -> None:
+        """Register a deterministic governance gate for a specific step."""
+        self._gates[step_id] = gate
 
     def _log(self, msg: str) -> None:
         if self.verbose:
             print(f"[detrix] {msg}")
 
-    def _get_func(self, dotted_path: str) -> Callable:
+    def _get_func(self, dotted_path: str) -> Callable[..., Any]:
         if dotted_path in self._registry:
             return self._registry[dotted_path]
         return _resolve_function(dotted_path)
@@ -165,9 +176,11 @@ class WorkflowEngine:
     def _execute_step(
         self,
         step: StepDef,
-        inputs: Dict[str, Any],
+        inputs: dict[str, Any],
         run_id: str,
-    ) -> StepResult:
+        step_index: int,
+        prior_verdicts: list[VerdictContract],
+    ) -> tuple[StepResult, VerdictContract | None]:
         """Execute a single step with retry, caching, and audit."""
 
         self.observer.on_step_start(run_id=run_id, step=step, inputs=inputs)
@@ -192,10 +205,11 @@ class WorkflowEngine:
                 self.observer.on_step_end(run_id=run_id, step=step, result=result)
                 if self.audit:
                     self.audit.record_step(run_id, result)
-                return result
+                return result, None
 
         func = self._get_func(step.function)
-        last_error: Optional[str] = None
+        gate = self._gates.get(step.id)
+        last_error: str | None = None
 
         for attempt in range(1, step.retry.max_attempts + 1):
             started = datetime.utcnow()
@@ -210,6 +224,42 @@ class WorkflowEngine:
 
                 ih = self.cache.input_hash(inputs) if self.cache else _stable_hash(inputs)
                 oh = self.cache.output_hash(output) if self.cache else _stable_hash(output)
+                gate_verdict: VerdictContract | None = None
+                serialized_gate_verdict: dict[str, Any] | None = None
+
+                if gate is not None and gate.can_evaluate(output):
+                    gate_verdict = gate.evaluate(
+                        output,
+                        GateContext(
+                            run_id=run_id,
+                            step_index=step_index,
+                            prior_verdicts=list(prior_verdicts),
+                            config={},
+                        ),
+                    )
+                    serialized_gate_verdict = gate_verdict.to_dict()
+                    if gate_verdict.decision not in {Decision.ACCEPT, Decision.CAUTION}:
+                        finished = datetime.utcnow()
+                        result = StepResult(
+                            step_id=step.id,
+                            status=StepStatus.FAILED,
+                            started_at=started,
+                            finished_at=finished,
+                            duration_ms=elapsed,
+                            input_hash=ih,
+                            output_hash=oh,
+                            output_data=output,
+                            error=(
+                                f"Governance gate '{gate_verdict.gate_id}' "
+                                f"returned {gate_verdict.decision.value}"
+                            ),
+                            attempt=attempt,
+                            gate_verdict=serialized_gate_verdict,
+                        )
+                        self.observer.on_step_end(run_id=run_id, step=step, result=result)
+                        if self.audit:
+                            self.audit.record_step(run_id, result)
+                        return result, gate_verdict
 
                 if self.cache:
                     self.cache.put(step.id, inputs, output)
@@ -230,11 +280,12 @@ class WorkflowEngine:
                     output_hash=oh,
                     output_data=output,
                     attempt=attempt,
+                    gate_verdict=serialized_gate_verdict,
                 )
                 self.observer.on_step_end(run_id=run_id, step=step, result=result)
                 if self.audit:
                     self.audit.record_step(run_id, result)
-                return result
+                return result, gate_verdict
 
             except Exception as e:
                 # Wrap user-code failures so the outer run() loop can
@@ -266,12 +317,12 @@ class WorkflowEngine:
         self.observer.on_step_end(run_id=run_id, step=step, result=result)
         if self.audit:
             self.audit.record_step(run_id, result)
-        return result
+        return result, None
 
     def run(
         self,
         workflow: WorkflowDef,
-        inputs: Optional[Dict[str, Any]] = None,
+        inputs: dict[str, Any] | None = None,
     ) -> RunRecord:
         """Execute a full workflow in topological order."""
 
@@ -293,10 +344,11 @@ class WorkflowEngine:
         self._log(f"RUN {workflow.name} v{workflow.version} [{record.run_id}]")
 
         step_map = {s.id: s for s in workflow.steps}
-        context: Dict[str, Dict[str, Any]] = {"input": inputs}
+        context: dict[str, dict[str, Any]] = {"input": inputs}
+        prior_verdicts: list[VerdictContract] = []
 
         order = _topo_order(workflow.steps)
-        for step_id in order:
+        for step_index, step_id in enumerate(order):
             step = step_map[step_id]
 
             try:
@@ -320,8 +372,16 @@ class WorkflowEngine:
             # wrap the _execute_step call in a separate try/except for
             # GovernanceError BEFORE this call so governance failures bypass
             # step retry logic and propagate directly to the caller.
-            result = self._execute_step(step, resolved, record.run_id)
+            result, gate_verdict = self._execute_step(
+                step,
+                resolved,
+                record.run_id,
+                step_index,
+                prior_verdicts,
+            )
             record.step_results.append(result)
+            if gate_verdict is not None:
+                prior_verdicts.append(gate_verdict)
 
             if result.status == StepStatus.FAILED:
                 self._log(f"  ABORT   workflow failed at step {step_id}")
@@ -342,7 +402,7 @@ class WorkflowEngine:
     def run_from_yaml(
         self,
         yaml_path: str,
-        inputs: Optional[Dict[str, Any]] = None,
+        inputs: dict[str, Any] | None = None,
     ) -> RunRecord:
         """Parse a YAML file and execute the workflow."""
         workflow = parse_workflow(yaml_path)

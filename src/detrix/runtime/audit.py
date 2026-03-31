@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from detrix.core.models import RunRecord, StepResult, StepStatus
+from detrix.core.models import RunRecord, StepResult
 
 
 class AuditLog:
@@ -49,7 +48,10 @@ class AuditLog:
                     output_hash   TEXT,
                     error         TEXT,
                     attempt       INTEGER DEFAULT 1,
-                    cached        INTEGER DEFAULT 0
+                    cached        INTEGER DEFAULT 0,
+                    gate_decision TEXT,
+                    gate_id       TEXT,
+                    gate_verdict_json TEXT
                 )
             """)
 
@@ -87,8 +89,9 @@ class AuditLog:
             conn.execute(
                 """INSERT INTO step_executions
                    (run_id, step_id, status, started_at, finished_at,
-                    duration_ms, input_hash, output_hash, error, attempt, cached)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    duration_ms, input_hash, output_hash, error, attempt, cached,
+                    gate_decision, gate_id, gate_verdict_json)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     run_id,
                     result.step_id,
@@ -101,10 +104,17 @@ class AuditLog:
                     result.error,
                     result.attempt,
                     1 if result.cached else 0,
+                    result.gate_verdict["decision"] if result.gate_verdict else None,
+                    result.gate_verdict["gate_id"] if result.gate_verdict else None,
+                    (
+                        json.dumps(result.gate_verdict, default=str)
+                        if result.gate_verdict is not None
+                        else None
+                    ),
                 ),
             )
 
-    def get_run(self, run_id: str) -> Optional[Dict[str, Any]]:
+    def get_run(self, run_id: str) -> dict[str, Any] | None:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute(
@@ -122,9 +132,9 @@ class AuditLog:
 
     def list_runs(
         self,
-        workflow_name: Optional[str] = None,
+        workflow_name: str | None = None,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             if workflow_name:

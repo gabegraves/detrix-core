@@ -10,7 +10,7 @@ import hashlib
 import json
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 def _stable_hash(data: Any) -> str:
@@ -48,13 +48,13 @@ class StepCache:
                 )
             """)
 
-    def make_key(self, step_id: str, inputs: Dict[str, Any]) -> str:
+    def make_key(self, step_id: str, inputs: dict[str, Any]) -> str:
         """Cache key = SHA256(step_id + sorted input hash)."""
         input_hash = _stable_hash(inputs)
         combined = f"{step_id}:{input_hash}"
         return hashlib.sha256(combined.encode()).hexdigest()
 
-    def get(self, step_id: str, inputs: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def get(self, step_id: str, inputs: dict[str, Any]) -> dict[str, Any] | None:
         """Return cached output if inputs match, else None."""
         key = self.make_key(step_id, inputs)
         with sqlite3.connect(self.db_path) as conn:
@@ -62,11 +62,12 @@ class StepCache:
                 "SELECT output_json FROM step_cache WHERE cache_key = ?", (key,)
             ).fetchone()
         if row:
-            return json.loads(row[0])
+            loaded = json.loads(row[0])
+            return loaded if isinstance(loaded, dict) else {"result": loaded}
         return None
 
     def put(
-        self, step_id: str, inputs: Dict[str, Any], output: Dict[str, Any]
+        self, step_id: str, inputs: dict[str, Any], output: dict[str, Any]
     ) -> str:
         """Store step output. Returns cache key."""
         key = self.make_key(step_id, inputs)
@@ -80,7 +81,7 @@ class StepCache:
             )
         return key
 
-    def invalidate(self, step_id: Optional[str] = None) -> int:
+    def invalidate(self, step_id: str | None = None) -> int:
         """Clear cache entries. If step_id given, only that step."""
         with sqlite3.connect(self.db_path) as conn:
             if step_id:
@@ -91,8 +92,8 @@ class StepCache:
                 cur = conn.execute("DELETE FROM step_cache")
             return cur.rowcount
 
-    def input_hash(self, inputs: Dict[str, Any]) -> str:
+    def input_hash(self, inputs: dict[str, Any]) -> str:
         return _stable_hash(inputs)
 
-    def output_hash(self, output: Dict[str, Any]) -> str:
+    def output_hash(self, output: dict[str, Any]) -> str:
         return _stable_hash(output)

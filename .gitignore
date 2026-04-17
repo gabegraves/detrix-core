@@ -43,3 +43,19 @@ Thumbs.db
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+.omx/
+
+# OMC state
+.omc/
+
+# Context files
+.context/
+
+# Superpowers
+.superpowers/
+
+# Build outputs
+outputs/
+
+# Cloned repos
+claude-code-clone/

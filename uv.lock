@@ -687,20 +687,27 @@ mlflow = [
 observability = [
     { name = "langfuse" },
 ]
+xrd = [
+    { name = "matplotlib" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.0" },
     { name = "langfuse", marker = "extra == 'observability'", specifier = ">=3.0.0" },
+    { name = "matplotlib", marker = "extra == 'xrd'", specifier = ">=3.10.8" },
     { name = "mlflow", marker = "extra == 'mlflow'", specifier = ">=2.10.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.7.0" },
+    { name = "numpy", marker = "extra == 'xrd'", specifier = ">=2.2.6" },
     { name = "pydantic", specifier = ">=2.5.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.6" },
 ]
-provides-extras = ["mlflow", "observability", "dev"]
+provides-extras = ["xrd", "mlflow", "observability", "dev"]
 
 [[package]]
 name = "distro"

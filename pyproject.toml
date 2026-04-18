@@ -31,6 +31,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+xrd = ["numpy>=2.2.6", "matplotlib>=3.10.8"]
 mlflow = ["mlflow>=2.10.0"]
 observability = ["langfuse>=3.0.0"]
 dev = [

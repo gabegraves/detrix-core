@@ -1,23 +1,75 @@
 # Agent Instructions
 
+## Design Doc (source of truth)
+
+**Read before any strategic work:** `~/.gstack/projects/gabegraves-detrix-core/gabriel-main-design-20260331-022621.md`
+
+Contains: positioning, competitive landscape, architecture (with Stripe/Anthropic patterns), existing asset map, testing plan, monetization model, agent-as-FDE scaling, hiring timeline, and 14-day sprint plan.
+
+**Research references:**
+- Autoresearch landscape + competitive intel: `docs/autoresearch-landscape-eval-20260423.md`
+- Bitter Lesson of Agent Harnesses implications: `docs/bitter-lesson-harness-implications-20260423.md`
+
 ## Product Context
 
-Detrix is the infrastructure layer for reliable, self-improving AI agent pipelines. It wraps existing frameworks (LangGraph, LangChain, CrewAI, raw Python) — it is NOT a pipeline runner or LangGraph competitor.
+Make domain-specific agents reliable enough to deploy and cheap enough to scale. Post-hoc physics evaluation + domain scoring + overnight improvement from governance-scored traces. Agents improve from yesterday's failures without constraining today's action space.
+
+**Core design principle (Bitter Lesson-aligned):** Gates evaluate outputs post-hoc — the agent has maximal action-space freedom, zero awareness of gates. The orchestrator runs evaluation checkpoints unconditionally after each phase. AgentXRD_v2 already implements this correctly: handlers have no gate awareness (see `pipeline.py:_post_score_governance()`).
+
+**Phase 1 identity: VERTICAL-FIRST (materials science)**
+- In Phase 1, sell "managed materials science pipeline improvement" — AgentXRD is the customer-facing product
+- Detrix is the internal infrastructure brand, extracted later as the platform
+- Prior investor rejection (Fledgling) was "too horizontal, too similar to OpenPipe" — vertical-first avoids that trap
 
 **Positioning rules for all agents:**
 - Never describe Detrix as "a pipeline framework" or "a DAG executor" — it is a governance + improvement runtime
-- Never position against LangGraph — position as the layer above it ("wraps any framework")
-- Always emphasize the four layers: Runtime/Governance, Memory, Improvement Loop, Domain Packs
-- The flywheel is the core story: every run → better local models → cheaper runs → more experiments → more training data
-- Lead with what's unique: persistent memory, self-improvement via traces→SFT/RL→promote, domain packs, local-first governance
-- AgentXRD (materials science, 9-phase pipeline, 71%→89% overnight) is the proof case, not the product
+- Never position against LangGraph — position as the layer above it (evaluates outputs from any framework via thin trajectory-capture shims)
+- **Never pitch "trace → fine-tune → cheaper models" alone** — that's OpenPipe. Differentiation requires post-hoc domain physics evaluation + tiered scoring + autonomous improvement from governance-scored traces.
+- **Never describe gates as "blocking" or "constraining" agent actions.** Gates evaluate outputs after the fact. The agent has full freedom; the orchestrator accepts or rejects results. This is the Bitter Lesson distinction: evaluation, not wrapping.
+- Open-source projects (MetaClaw, TensorZero, autoresearch, MLAgentBench) are component sources under MIT/Apache-2.0, NOT competitors.
+- AgentXRD (materials science) is the Phase 1 product. ~70% of the architecture already exists in AgentXRD_v2 and mission-control.
+- **Training strategy:** SFT + LoRA first (v1), DPO second (v2), GRPO/RL only if needed (v3). Don't start with RL.
+- **Build order:** Finish AgentXRD_v2 end-to-end → extract infra into detrix-core. Preserve AgentXRD_v2's post-hoc gate pattern during extraction — it's already correct.
+- **Competitive landscape (2026-04-23):** 6+ projects attack parts of the improvement loop (GEPA, AIDE, ML-Agent, recursive-improve, ADAS, autoevolve). None combine all four differentiators: deterministic physics gates + tiered scoring + post-hoc enforcement + training signal extraction. GEPA (ICLR 2026) outperforms GRPO via gradient-free Pareto evolution — closest threat to MetaClaw skill evolver. Full analysis: `docs/autoresearch-landscape-eval-20260423.md`, `docs/competitive-moat-research-20260327.md`
+- **Provider absorption risk is LOW** if positioned on domain physics. OpenAI RFT gets 70% of generic improvement loop but cannot validate materials physics. Generic horizontal infra gets acquired (OpenPipe, W&B, Galileo, Langfuse, Promptfoo all absorbed 2025-2026).
+- **The training loop is commodity.** TensorZero, MetaClaw, OpenAI RFT all ship versions. The moat is domain-validated training SIGNAL from governance scoring, not the loop mechanics.
+- **Hardware advantage:** Local GPUs (2x Blackwell + 3x 3090 + 512GB RAM) enable zero-marginal-cost improvement loops, on-prem demos for regulated customers, and pre-built domain benchmarks.
+
+## AgentXRD_v2 Application
+
+AgentXRD_v2 is the proving ground for Detrix — its gate architecture is already Bitter Lesson-aligned:
+
+**What's already correct (preserve during extraction):**
+- 6 gates implemented as post-hoc output evaluators in `pipeline.py`
+- Handlers have zero awareness of gates — `_post_score_governance()` and `_post_refinement_governance()` run after handler completion
+- `TerminalRoute` rejects outputs without blocking agent actions
+- `GateRecord` captures every evaluation for trajectory scoring
+- State machine (`INIT→PREPROCESS→METROLOGY_GUARD→SCORING→REFINEMENT→VERDICT`) sequences evaluation checkpoints, not action constraints
+
+**What to add during detrix-core extraction:**
+- Agent-editable gate thresholds: gate configs readable/proposable by the agent, validated against held-out test set (Phase 1, don't defer to Phase 6)
+- GovernedTrajectory schema wrapping GateRecords + handler outputs as SFT/DPO training data
+- MLAgentBench integration as secondary RLVR training ground (13 ML tasks with deterministic `get_score()`)
+- MetaClaw SkillEvolver: gradient-free skill evolution scored by existing gates (reference: AutoResearchClaw's 5-layer integration, +18.3% robustness)
+
+**What NOT to do:**
+- Don't refactor gates into action-space constraints during extraction — the post-hoc pattern is correct
+- Don't build heavy framework adapters — thin trajectory-capture shims (~50 lines each)
+- Don't wrap agent tools — evaluate agent outputs
 
 **When writing copy, docs, or landing page content:**
-- One-liner: "Detrix is autoresearch for domain-specific agent pipelines"
+- One-liner: "Make domain-specific agents reliable enough to deploy and cheap enough to scale."
+- Competitive line: "OpenPipe trains on traces. Detrix trains on traces that survived domain physics evaluation."
+- Elevator: "We score your agent's output with domain physics — post-hoc, no wrapping, full agent freedom. Then we train on what survived. Agents improve from yesterday's failures without constraining today's action space."
 - Hero framing: "Your agents work in demos. Detrix makes them work in production."
-- Never say "No YAML to learn" — the architecture uses YAML-as-code. The agent-driven `detrix init` generates it, but YAML is a feature, not a secret.
-- Quickstart: `detrix init → detrix wrap <script.py> → detrix history`
-- Always include "Works with: LangGraph, LangChain, CrewAI, Python" to kill the competitor framing
+- Bitter Lesson framing: "Don't wrap the agent. Evaluate what it produces. Train on what survives."
+- Quickstart: `detrix init → detrix observe → detrix score → detrix improve → detrix promote`
+- Always include "Works with: LangGraph, LangChain, CrewAI, Python — no framework changes required"
+- **Monetization:** Phase 1: vertical service ($2-5K/engagement) → Phase 2: Detrix Cloud ($500/mo) → Phase 2.5: hosted inference (30% of savings) → Phase 3: domain pack subscriptions
+
+## Working Rules
+- All work must be tracked with beads and git
+- Run `exec-report` skill at the end of every beads-tracked execution session before final handoff
 
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
@@ -30,6 +82,16 @@ bd update <id> --claim  # Claim work atomically
 bd close <id>         # Complete work
 bd dolt push          # Push beads data to remote
 ```
+
+## Quality Gates
+- `uv run ruff check .` and `uv run mypy src/detrix` before committing
+- `uv run pytest` before pushing
+
+## Git Rules
+- Commit early and often
+- One logical change per commit
+- Conventional commits (feat/fix/docs/refactor)
+- Include beads issue ID in commits when applicable: `git commit -m "feat: add trace collector (bd-abc)"`
 
 ## Non-Interactive Shell Commands
 
@@ -147,7 +209,7 @@ For more details, see README.md and docs/QUICKSTART.md.
 **MANDATORY WORKFLOW:**
 
 1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
+2. **Run quality gates** (if code changed) - `uv run ruff check .`, `uv run mypy src/detrix`, `uv run pytest`
 3. **Update issue status** - Close finished work, update in-progress items
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
@@ -158,12 +220,14 @@ For more details, see README.md and docs/QUICKSTART.md.
    ```
 5. **Clean up** - Clear stashes, prune remote branches
 6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
+7. **Exec report** - Run `exec-report` skill at end of every beads-tracked session
+8. **Hand off** - Provide context for next session using exec report as summary
 
 **CRITICAL RULES:**
 - Work is NOT complete until `git push` succeeds
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
+- NEVER skip `exec-report` at end of a beads execution session
 - If push fails, resolve and retry until it succeeds
 
 <!-- END BEADS INTEGRATION -->

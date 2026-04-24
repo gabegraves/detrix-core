@@ -13,16 +13,15 @@ from pathlib import Path
 import pytest
 import yaml
 
-from detrix.core.models import StepDef, StepResult, StepStatus, WorkflowDef, RunRecord
 from detrix.core.cache import StepCache, _stable_hash, hash_file
-from detrix.runtime.audit import AuditLog
+from detrix.core.models import RunRecord, StepDef, StepResult, StepStatus, WorkflowDef
 from detrix.core.pipeline import (
     WorkflowEngine,
-    parse_workflow,
-    _topo_order,
     _resolve_inputs,
+    _topo_order,
+    parse_workflow,
 )
-
+from detrix.runtime.audit import AuditLog
 
 # ---------------------------------------------------------------
 # Fixtures

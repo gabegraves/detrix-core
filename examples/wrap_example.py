@@ -4,7 +4,7 @@ Shows how to use the WorkflowEngine programmatically
 to run a simple pipeline without YAML.
 """
 
-from detrix.core import StepCache, WorkflowEngine, WorkflowDef, StepDef
+from detrix.core import StepCache, StepDef, WorkflowDef, WorkflowEngine
 
 
 def my_analysis(data: list, threshold: float = 0.5) -> dict:

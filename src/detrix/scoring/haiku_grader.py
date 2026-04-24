@@ -9,7 +9,7 @@ from __future__ import annotations
 import http.client
 import json
 import os
-from typing import Any, Optional
+from typing import Any
 
 from detrix.scoring.types import (
     ApproachGrade,
@@ -17,7 +17,6 @@ from detrix.scoring.types import (
     HaikuOverride,
     HaikuPromptGrade,
     HaikuScorecard,
-    PromptChange,
     SessionDigest,
 )
 
@@ -143,7 +142,7 @@ def parse_haiku_response(response_text: str) -> HaikuScorecard:
     try:
         data = json.loads(response_text)
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON response from Claude: {e}")
+        raise ValueError(f"Invalid JSON response from Claude: {e}") from e
 
     score: int = data.get("score", 50)
     if not isinstance(score, int) or score < 0 or score > 100:
@@ -203,7 +202,7 @@ def parse_haiku_response(response_text: str) -> HaikuScorecard:
 
 def score_session(
     digest: SessionDigest,
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
 ) -> HaikuScorecard:
     """
     Score a session using Claude via Vercel AI Gateway.

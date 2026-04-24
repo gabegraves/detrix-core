@@ -1,0 +1,10 @@
+{
+  "name": "@detrix/governance",
+  "version": "0.1.0",
+  "description": "Detrix governance extension for pi agent harness (placeholder - unverified API surface)",
+  "main": "index.ts",
+  "license": "MIT",
+  "peerDependencies": {
+    "@anthropic/pi-agent-core": "*"
+  }
+}

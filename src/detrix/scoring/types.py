@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -32,7 +31,7 @@ class HaikuPromptGrade(BaseModel):
     prompt_index: int
     grade: ApproachGrade
     reasoning: str
-    file_references: List[str] = Field(default_factory=list)
+    file_references: list[str] = Field(default_factory=list)
 
 
 class HaikuOverride(BaseModel):
@@ -47,24 +46,24 @@ class HaikuScorecard(BaseModel):
     """Complete scoring breakdown for a session from Haiku."""
 
     score: int  # 0-100
-    prompt_grades: List[HaikuPromptGrade] = Field(default_factory=list)
-    went_right: List[str] = Field(default_factory=list)
-    went_wrong: List[str] = Field(default_factory=list)
-    overrides: List[HaikuOverride] = Field(default_factory=list)
+    prompt_grades: list[HaikuPromptGrade] = Field(default_factory=list)
+    went_right: list[str] = Field(default_factory=list)
+    went_wrong: list[str] = Field(default_factory=list)
+    overrides: list[HaikuOverride] = Field(default_factory=list)
     digest_tokens: int = 0
     confidence: ConfidenceLevel = ConfidenceLevel.MEDIUM
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class SessionGradeRecord(BaseModel):
     """Complete grading record for a session."""
 
     session_id: str
-    mechanical_grades: Dict[int, ApproachGrade] = Field(default_factory=dict)
-    haiku_scorecard: Optional[HaikuScorecard] = None
-    final_score: Optional[int] = None
+    mechanical_grades: dict[int, ApproachGrade] = Field(default_factory=dict)
+    haiku_scorecard: HaikuScorecard | None = None
+    final_score: int | None = None
     created_at: str = Field(default_factory=lambda: "")
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class PromptChange(BaseModel):
@@ -84,8 +83,8 @@ class SessionDigest(BaseModel):
 
     session_id: str
     prompt_count: int
-    prompt_changes: List[PromptChange] = Field(default_factory=list)
-    mechanical_grades: Dict[int, ApproachGrade] = Field(default_factory=dict)
-    reverted_prompts: List[int] = Field(default_factory=list)
-    consecutive_failures: Dict[int, int] = Field(default_factory=dict)
+    prompt_changes: list[PromptChange] = Field(default_factory=list)
+    mechanical_grades: dict[int, ApproachGrade] = Field(default_factory=dict)
+    reverted_prompts: list[int] = Field(default_factory=list)
+    consecutive_failures: dict[int, int] = Field(default_factory=dict)
     estimated_tokens: int = 0

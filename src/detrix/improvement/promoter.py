@@ -6,8 +6,6 @@ no external dependencies required.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
-
 from pydantic import BaseModel
 
 from detrix.core.types import Verdict
@@ -17,21 +15,21 @@ class PromotionResult(BaseModel):
     """Outcome of a challenger-vs-incumbent comparison."""
 
     verdict: Verdict
-    metric_deltas: Dict[str, float]
+    metric_deltas: dict[str, float]
     threshold: float
-    metrics_exceeding_threshold: List[str]
+    metrics_exceeding_threshold: list[str]
 
 
 class ModelPromoter:
     """Compare two sets of metrics and decide whether to promote the challenger."""
 
-    def __init__(self, metric_names: Optional[List[str]] = None):
+    def __init__(self, metric_names: list[str] | None = None):
         self.metric_names = metric_names
 
     def compare(
         self,
-        challenger: Dict[str, float],
-        incumbent: Dict[str, float],
+        challenger: dict[str, float],
+        incumbent: dict[str, float],
         threshold: float = 0.1,
     ) -> PromotionResult:
         """Compare challenger against incumbent.
@@ -44,8 +42,8 @@ class ModelPromoter:
             set(challenger.keys()) | set(incumbent.keys())
         )
 
-        deltas: Dict[str, float] = {}
-        exceeding: List[str] = []
+        deltas: dict[str, float] = {}
+        exceeding: list[str] = []
 
         for metric in metrics_to_check:
             inc_val = incumbent.get(metric, 0.0)

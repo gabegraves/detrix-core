@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Any
 
 
 class Verdict(str, Enum):
@@ -25,3 +26,18 @@ class StepExecutionError(Exception):
         super().__init__(f"Step '{step_id}' failed: {cause}")
         self.step_id = step_id
         self.cause = cause
+
+
+class GovernanceError(Exception):
+    """Raised when a governance gate rejects or halts the pipeline.
+
+    Propagates unwrapped through the pipeline loop, bypassing step retry logic.
+    """
+
+    def __init__(self, verdict: Any) -> None:
+        self.verdict = verdict
+        gate_id = getattr(verdict, "gate_id", "unknown")
+        decision = getattr(verdict, "decision", "unknown")
+        if hasattr(decision, "value"):
+            decision = decision.value
+        super().__init__(f"Gate '{gate_id}' returned {decision}")

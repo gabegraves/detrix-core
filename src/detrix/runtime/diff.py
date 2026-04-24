@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-
 from pydantic import BaseModel, Field
 
 from detrix.runtime.artifact import RunArtifact
@@ -17,8 +15,8 @@ class StepDiff(BaseModel):
     output_changed: bool = False
     status_changed: bool = False
     duration_delta_ms: float = 0.0
-    old_status: Optional[str] = None
-    new_status: Optional[str] = None
+    old_status: str | None = None
+    new_status: str | None = None
 
 
 class DiffReport(BaseModel):
@@ -29,9 +27,9 @@ class DiffReport(BaseModel):
     inputs_changed: bool = False
     outputs_changed: bool = False
     env_changed: bool = False
-    steps_changed: List[StepDiff] = Field(default_factory=list)
-    steps_added: List[str] = Field(default_factory=list)
-    steps_removed: List[str] = Field(default_factory=list)
+    steps_changed: list[StepDiff] = Field(default_factory=list)
+    steps_added: list[str] = Field(default_factory=list)
+    steps_removed: list[str] = Field(default_factory=list)
 
     @property
     def has_changes(self) -> bool:
@@ -46,7 +44,7 @@ class DiffReport(BaseModel):
 
     def format_text(self) -> str:
         """Render a human-readable diff summary."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Diff: {self.run_a_id} → {self.run_b_id}")
         lines.append("=" * 50)
 

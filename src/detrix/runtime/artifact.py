@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -20,13 +19,13 @@ class RunArtifact(BaseModel):
     run_id: str
     workflow_name: str
     started_at: datetime
-    ended_at: Optional[datetime] = None
+    ended_at: datetime | None = None
     inputs_hash: str
     outputs_hash: str
-    code_revision: Optional[str] = None
-    env_spec: Dict[str, str] = Field(default_factory=dict)
-    step_results: List[StepResult] = Field(default_factory=list)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    code_revision: str | None = None
+    env_spec: dict[str, str] = Field(default_factory=dict)
+    step_results: list[StepResult] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     def save(self, path: str | Path) -> Path:
         """Write artifact as JSON bundle."""
@@ -36,7 +35,7 @@ class RunArtifact(BaseModel):
         return p
 
     @classmethod
-    def load(cls, path: str | Path) -> "RunArtifact":
+    def load(cls, path: str | Path) -> RunArtifact:
         """Read artifact from JSON bundle."""
         p = Path(path)
         return cls.model_validate_json(p.read_text())
@@ -45,9 +44,9 @@ class RunArtifact(BaseModel):
     def from_run_record(
         cls,
         record: RunRecord,
-        git_sha: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> "RunArtifact":
+        git_sha: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> RunArtifact:
         """Capture a RunArtifact from a completed RunRecord."""
         import platform
         import sys

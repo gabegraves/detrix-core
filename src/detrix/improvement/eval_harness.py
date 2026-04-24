@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
 class StepEvaluator(ABC):
@@ -18,13 +18,13 @@ class StepEvaluator(ABC):
 
     @abstractmethod
     def evaluate(
-        self, predictions: List[Any], references: List[Any]
-    ) -> Dict[str, float]:
+        self, predictions: list[Any], references: list[Any]
+    ) -> dict[str, float]:
         """Compare predictions to references, return named metrics (0.0–1.0)."""
         ...
 
 
-def canonical_json(text: str) -> Tuple[bool, str]:
+def canonical_json(text: str) -> tuple[bool, str]:
     """Attempt to parse JSON and return a canonical form."""
     try:
         parsed = json.loads(text)
@@ -38,11 +38,11 @@ class JSONEvaluator(StepEvaluator):
     """Evaluate structured JSON outputs for validity and exact match."""
 
     def evaluate(
-        self, predictions: List[Any], references: List[Any]
-    ) -> Dict[str, float]:
+        self, predictions: list[Any], references: list[Any]
+    ) -> dict[str, float]:
         valid = 0
         matches = 0
-        for pred, ref in zip(predictions, references):
+        for pred, ref in zip(predictions, references, strict=False):
             pred_str = pred if isinstance(pred, str) else json.dumps(pred)
             ref_str = ref if isinstance(ref, str) else json.dumps(ref)
             ok, canonical_pred = canonical_json(pred_str)
@@ -64,7 +64,7 @@ _TOOLCALL_RE = re.compile(
 )
 
 
-def _parse_tool_call(text: str) -> Tuple[bool, str, str]:
+def _parse_tool_call(text: str) -> tuple[bool, str, str]:
     """Parse a tool call from text, returning (valid, name, canonical_args)."""
     match = _TOOLCALL_RE.match(text.strip())
     if not match:
@@ -81,12 +81,12 @@ class ToolCallEvaluator(StepEvaluator):
     """Evaluate tool call outputs for format validity, name match, and arg match."""
 
     def evaluate(
-        self, predictions: List[Any], references: List[Any]
-    ) -> Dict[str, float]:
+        self, predictions: list[Any], references: list[Any]
+    ) -> dict[str, float]:
         valid_calls = 0
         name_matches = 0
         args_matches = 0
-        for pred, ref in zip(predictions, references):
+        for pred, ref in zip(predictions, references, strict=False):
             pred_str = pred if isinstance(pred, str) else str(pred)
             ref_str = ref if isinstance(ref, str) else str(ref)
             pred_ok, pred_name, pred_args = _parse_tool_call(pred_str)

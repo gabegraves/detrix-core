@@ -16,7 +16,7 @@ from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import Any, cast
 
-import yaml  # type: ignore[import-untyped]
+import yaml  # type: ignore[import-untyped, unused-ignore]
 
 from detrix.core.cache import StepCache, _stable_hash
 from detrix.core.governance import (

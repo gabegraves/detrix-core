@@ -7,10 +7,10 @@ returns a dict of outputs.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 
-def load_data(**kwargs: Any) -> Dict[str, Any]:
+def load_data(**kwargs: Any) -> dict[str, Any]:
     """Simulate loading records from a data source."""
     records = [
         {"id": 1, "value": 10.5, "label": "A"},
@@ -22,7 +22,7 @@ def load_data(**kwargs: Any) -> Dict[str, Any]:
     return {"records": records, "count": len(records)}
 
 
-def process_records(records: List[Dict[str, Any]], **kwargs: Any) -> Dict[str, Any]:
+def process_records(records: list[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
     """Process records: normalize values and compute stats."""
     values = [r["value"] for r in records]
     mean = sum(values) / len(values)
@@ -42,10 +42,10 @@ def process_records(records: List[Dict[str, Any]], **kwargs: Any) -> Dict[str, A
 
 
 def summarize(
-    processed: List[Dict[str, Any]], stats: Dict[str, Any], **kwargs: Any
-) -> Dict[str, Any]:
+    processed: list[dict[str, Any]], stats: dict[str, Any], **kwargs: Any
+) -> dict[str, Any]:
     """Generate a summary from processed records."""
-    label_counts: Dict[str, int] = {}
+    label_counts: dict[str, int] = {}
     for r in processed:
         label = r["label"]
         label_counts[label] = label_counts.get(label, 0) + 1

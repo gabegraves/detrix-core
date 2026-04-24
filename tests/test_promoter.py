@@ -1,14 +1,13 @@
 """Tests for ModelPromoter and evaluation harness."""
 
-import pytest
 
 from detrix.core.types import Verdict
-from detrix.improvement.promoter import ModelPromoter, PromotionResult
 from detrix.improvement.eval_harness import (
     JSONEvaluator,
     ToolCallEvaluator,
     canonical_json,
 )
+from detrix.improvement.promoter import ModelPromoter
 
 
 class TestModelPromoter:

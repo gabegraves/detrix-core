@@ -7,7 +7,7 @@ exportable as an OpenLineage-compatible manifest.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -17,7 +17,7 @@ class ProvenanceNode(BaseModel):
 
     node_id: str
     node_type: str  # "input", "step", "output"
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ProvenanceEdge(BaseModel):
@@ -31,5 +31,5 @@ class ProvenanceEdge(BaseModel):
 class ProvenanceGraph(BaseModel):
     """DAG linking inputs → transformations → outputs."""
 
-    nodes: List[ProvenanceNode] = Field(default_factory=list)
-    edges: List[ProvenanceEdge] = Field(default_factory=list)
+    nodes: list[ProvenanceNode] = Field(default_factory=list)
+    edges: list[ProvenanceEdge] = Field(default_factory=list)

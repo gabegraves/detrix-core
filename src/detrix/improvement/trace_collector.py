@@ -7,7 +7,7 @@ traces into SFT-ready training examples for model improvement.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -19,13 +19,13 @@ class TrainingExample(BaseModel):
 
     prompt: str
     completion: str
-    metadata: Dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
 
 
 class TraceCollector(ABC):
     """Abstract base for collecting training data from run artifacts."""
 
     @abstractmethod
-    def collect(self, run_artifact: RunArtifact) -> List[TrainingExample]:
+    def collect(self, run_artifact: RunArtifact) -> list[TrainingExample]:
         """Extract training examples from a completed run."""
         ...

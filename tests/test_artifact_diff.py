@@ -8,7 +8,7 @@ import pytest
 
 from detrix.core.models import RunRecord, StepResult, StepStatus
 from detrix.runtime.artifact import RunArtifact
-from detrix.runtime.diff import diff_runs, DiffReport
+from detrix.runtime.diff import diff_runs
 
 
 @pytest.fixture
@@ -92,7 +92,6 @@ class TestDiffRuns:
         assert report.has_changes
 
     def test_step_changes_detected(self):
-        now = datetime.utcnow()
         r1 = _make_run_record(run_id="r1")
         r2 = _make_run_record(run_id="r2")
         # Modify step output hash in r2

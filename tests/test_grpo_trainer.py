@@ -39,14 +39,17 @@ class TestGovernedTrajectoryToART:
         assert len(group.trajectories) >= 1
         assert group.trajectories[0].reward == 0.8
 
-    def test_prompt_appears_in_art_messages(self) -> None:
+    def test_trajectory_messages_contain_prompt(self) -> None:
         pytest.importorskip("art")
-        from detrix.improvement.grpo_trainer import governed_to_art_group
+        from detrix.improvement.grpo_trainer import trajectory_messages
 
-        group = governed_to_art_group(_make_trajectory("t1"))
-        messages = getattr(group.trajectories[0], "history", None) or group.trajectories[0].messages
-        user_msgs = [m for m in messages if m.get("role") == "user"]
+        msgs = trajectory_messages(_make_trajectory("t1"))
+        user_msgs = [m for m in msgs if m["role"] == "user"]
+        assert len(user_msgs) == 1
         assert "pattern data" in user_msgs[0]["content"]
+        asst_msgs = [m for m in msgs if m["role"] == "assistant"]
+        assert len(asst_msgs) == 1
+        assert "quartz" in asst_msgs[0]["content"]
 
     def test_groups_require_reward_variance(self) -> None:
         pytest.importorskip("art")

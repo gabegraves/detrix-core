@@ -6,6 +6,7 @@ Usage:
     detrix inspect <run-id>
     detrix diff <run-a> <run-b>
     detrix export <run-id> -o artifact.json
+    detrix export --format sft --domain xrd -o training.jsonl
 """
 
 from __future__ import annotations
@@ -172,11 +173,53 @@ def diff(ctx: click.Context, run_a: str, run_b: str) -> None:
 
 
 @cli.command("export")
-@click.argument("run_id")
+@click.argument("run_id", required=False)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["sft", "grpo", "dpo"]),
+    default=None,
+    help="Training export format.",
+)
+@click.option("--domain", default=None, help="Filter training export by domain.")
+@click.option("--min-score", default=None, type=float, help="Minimum governance score.")
+@click.option("--db", default=".detrix/evidence.db", help="Path to evidence.db")
 @click.option("--output", "-o", required=True, help="Output file path")
 @click.pass_context
-def export_artifact(ctx: click.Context, run_id: str, output: str) -> None:
-    """Export a run artifact as portable JSON."""
+def export_artifact(
+    ctx: click.Context,
+    run_id: str | None,
+    fmt: str | None,
+    domain: str | None,
+    min_score: float | None,
+    db: str,
+    output: str,
+) -> None:
+    """Export a run artifact or governed trajectories as training data."""
+    if fmt is not None:
+        from detrix.improvement.exporter import TrainingExporter
+        from detrix.runtime.trajectory_store import TrajectoryStore
+
+        store = TrajectoryStore(db)
+        exporter = TrainingExporter(store)
+
+        if fmt == "sft":
+            path = exporter.export_sft(output, domain=domain, min_score=min_score)
+        elif fmt == "grpo":
+            path = exporter.export_grpo(output, domain=domain, min_score=min_score)
+        elif fmt == "dpo":
+            path = exporter.export_dpo(output, domain=domain)
+        else:
+            raise click.BadParameter(f"Unknown format: {fmt}")
+
+        with open(path, encoding="utf-8") as file:
+            count = sum(1 for _ in file)
+        click.echo(f"Exported {count} rows to {path}")
+        return
+
+    if run_id is None:
+        raise click.UsageError("Missing argument 'RUN_ID' unless --format is provided.")
+
     data_dir = ctx.obj["data_dir"]
     artifact_path = data_dir / "artifacts" / f"{run_id}.json"
 

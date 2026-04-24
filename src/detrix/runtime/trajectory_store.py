@@ -95,7 +95,7 @@ class TrajectoryStore:
         domain: str | None = None,
         min_score: float | None = None,
         rejection_type: str | None = _UNSET,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> list[GovernedTrajectory]:
         conditions: list[str] = []
         params: list[Any] = []
@@ -114,14 +114,13 @@ class TrajectoryStore:
                 params.append(rejection_type)
 
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-        params.append(limit)
+        query = "SELECT trajectory_json FROM governed_trajectories " f"{where} ORDER BY id"
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
 
         with sqlite3.connect(self.db_path) as conn:
-            rows = conn.execute(
-                "SELECT trajectory_json FROM governed_trajectories "
-                f"{where} ORDER BY id LIMIT ?",
-                params,
-            ).fetchall()
+            rows = conn.execute(query, params).fetchall()
             return [GovernedTrajectory.model_validate_json(row[0]) for row in rows]
 
     def count(self) -> int:

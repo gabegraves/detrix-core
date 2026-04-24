@@ -22,12 +22,14 @@ class TrainingExporter:
         output_path: str,
         domain: str | None = None,
         min_score: float | None = None,
+        limit: int | None = None,
     ) -> str:
         """Export passing trajectories as SFT JSONL prompt/completion pairs."""
         trajectories = self.store.query(
             domain=domain,
             min_score=min_score,
             rejection_type=None,
+            limit=limit,
         )
         path = self._prepare_output(output_path)
         with path.open("w", encoding="utf-8") as file:
@@ -40,12 +42,14 @@ class TrainingExporter:
         output_path: str,
         domain: str | None = None,
         min_score: float | None = None,
+        limit: int | None = None,
     ) -> str:
         """Export passing trajectories as GRPO JSONL with governance scores."""
         trajectories = self.store.query(
             domain=domain,
             min_score=min_score,
             rejection_type=None,
+            limit=limit,
         )
         path = self._prepare_output(output_path)
         with path.open("w", encoding="utf-8") as file:
@@ -57,10 +61,11 @@ class TrainingExporter:
         self,
         output_path: str,
         domain: str | None = None,
+        limit: int | None = None,
     ) -> str:
         """Export DPO pairs by matching accepted and output-rejected rows by prompt."""
-        positive = self.store.query(domain=domain, rejection_type=None)
-        negative = self.store.query(domain=domain, rejection_type="output_quality")
+        positive = self.store.query(domain=domain, rejection_type=None, limit=limit)
+        negative = self.store.query(domain=domain, rejection_type="output_quality", limit=limit)
 
         negative_by_prompt: dict[str, list[Any]] = defaultdict(list)
         for trajectory in negative:
@@ -90,6 +95,7 @@ class TrainingExporter:
         format: str,
         domain: str | None = None,
         min_score: float | None = None,
+        limit: int | None = None,
     ) -> Any:
         """Export directly to a HuggingFace Dataset object."""
         from datasets import Dataset
@@ -99,6 +105,7 @@ class TrainingExporter:
                 domain=domain,
                 min_score=min_score,
                 rejection_type=None,
+                limit=limit,
             )
             rows = [trajectory.to_sft_row() for trajectory in trajectories]
         elif format == "grpo":
@@ -106,13 +113,14 @@ class TrainingExporter:
                 domain=domain,
                 min_score=min_score,
                 rejection_type=None,
+                limit=limit,
             )
             rows = [trajectory.to_grpo_row() for trajectory in trajectories]
         elif format == "dpo":
             with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as tmp:
                 tmp_path = Path(tmp.name)
             try:
-                self.export_dpo(str(tmp_path), domain=domain)
+                self.export_dpo(str(tmp_path), domain=domain, limit=limit)
                 rows = [json.loads(line) for line in tmp_path.read_text().splitlines()]
             finally:
                 tmp_path.unlink(missing_ok=True)

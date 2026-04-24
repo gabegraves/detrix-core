@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Literal, cast
 
 import click
 
@@ -230,6 +231,133 @@ def export_artifact(
     artifact = RunArtifact.load(artifact_path)
     out_path = artifact.save(output)
     click.echo(f"Exported to {out_path}")
+
+
+@cli.command("train")
+@click.option("--backend", type=click.Choice(["sft", "grpo"]), default="sft", help="Training backend")
+@click.option("--model", "model_name", required=True, help="Model name or local path")
+@click.option("--domain", default=None, help="Filter trajectories by domain")
+@click.option("--min-score", default=None, type=float, help="Minimum governance score")
+@click.option("--limit", default=None, type=int, help="Maximum trajectories to load (default: all)")
+@click.option("--max-steps", default=100, type=int, help="Max training steps")
+@click.option("--lora-r", default=16, type=int, help="LoRA rank")
+@click.option("--learning-rate", default=2e-4, type=float, help="Learning rate")
+@click.option("--load-in-4bit", is_flag=True, help="Use 4-bit quantization")
+@click.option("--cuda-devices", default=None, help="CUDA_VISIBLE_DEVICES override")
+@click.option("--output-dir", default=".detrix/adapters", help="Adapter output directory")
+@click.option("--db", default=".detrix/evidence.db", help="Path to evidence.db")
+def train(
+    backend: str,
+    model_name: str,
+    domain: str | None,
+    min_score: float | None,
+    limit: int | None,
+    max_steps: int,
+    lora_r: int,
+    learning_rate: float,
+    load_in_4bit: bool,
+    cuda_devices: str | None,
+    output_dir: str,
+    db: str,
+) -> None:
+    """Train a LoRA adapter from governed trajectories."""
+    from detrix.improvement.training_config import TrainingConfig
+
+    config = TrainingConfig(
+        model_name=model_name,
+        backend=cast(Literal["sft", "grpo"], backend),
+        evidence_db=db,
+        domain=domain,
+        min_score=min_score,
+        limit=limit,
+        max_steps=max_steps,
+        lora_r=lora_r,
+        learning_rate=learning_rate,
+        load_in_4bit=load_in_4bit,
+        cuda_devices=cuda_devices,
+        output_dir=output_dir,
+    )
+
+    click.echo("Training config:")
+    click.echo(f"  Backend:  {config.backend}")
+    click.echo(f"  Model:    {config.model_name}")
+    click.echo(f"  Domain:   {config.domain or 'all'}")
+    click.echo(f"  Limit:    {config.limit or 'all'}")
+    click.echo(f"  Steps:    {config.max_steps}")
+    click.echo(f"  LoRA r:   {config.lora_r}")
+    click.echo(f"  GPU:      {config.cuda_devices or 'auto'}")
+    click.echo()
+
+    if backend == "sft":
+        from detrix.improvement.sft_trainer import DetrixSFTTrainer
+
+        trainer = DetrixSFTTrainer(config)
+        dataset = trainer.load_dataset()
+        click.echo(f"Loaded {len(dataset)} training examples")
+        result = trainer.train()
+    else:
+        from detrix.improvement.grpo_trainer import DetrixGRPOTrainer
+
+        trainer_grpo = DetrixGRPOTrainer(config)
+        groups = trainer_grpo.load_trajectory_groups()
+        click.echo(f"Loaded {len(groups)} trajectory groups")
+        result = trainer_grpo.train()
+
+    click.echo(f"\n{'=' * 60}")
+    click.echo(f"Training complete ({result.backend})")
+    click.echo(f"  Adapter:  {result.adapter_path}")
+    click.echo(f"  Examples: {result.num_examples}")
+    click.echo(f"  Steps:    {result.num_steps}")
+    click.echo(f"  Loss:     {result.final_loss:.4f}")
+    click.echo(f"{'=' * 60}")
+
+
+@cli.command("autoresearch")
+@click.option("--backend", type=click.Choice(["sft", "grpo"]), default="sft")
+@click.option("--model", "model_name", required=True, help="Model name or local path")
+@click.option("--domain", default=None, help="Filter trajectories by domain")
+@click.option("--limit", default=None, type=int, help="Maximum trajectories to load (default: all)")
+@click.option("--max-experiments", default=50, type=int, help="Number of experiments")
+@click.option("--max-steps", default=50, type=int, help="Training steps per experiment")
+@click.option("--cuda-devices", default=None, help="CUDA_VISIBLE_DEVICES")
+@click.option("--db", default=".detrix/evidence.db", help="Path to evidence.db")
+@click.option("--seed", default=42, type=int, help="Random seed")
+def autoresearch(
+    backend: str,
+    model_name: str,
+    domain: str | None,
+    limit: int | None,
+    max_experiments: int,
+    max_steps: int,
+    cuda_devices: str | None,
+    db: str,
+    seed: int,
+) -> None:
+    """Run hyperparameter autoresearch: vary, train, keep best adapter."""
+    from detrix.improvement.autoresearch import AutoresearchLoop
+    from detrix.improvement.training_config import TrainingConfig
+
+    config = TrainingConfig(
+        model_name=model_name,
+        backend=cast(Literal["sft", "grpo"], backend),
+        evidence_db=db,
+        domain=domain,
+        limit=limit,
+        max_steps=max_steps,
+        cuda_devices=cuda_devices,
+    )
+    click.echo(f"Autoresearch: {max_experiments} experiments, {max_steps} steps each")
+    click.echo(f"  Model: {model_name}")
+    click.echo(f"  Backend: {backend}")
+    click.echo(f"  Limit: {limit or 'all'}")
+    click.echo(f"  GPU: {cuda_devices or 'auto'}")
+    click.echo()
+
+    loop = AutoresearchLoop(config, max_experiments=max_experiments, seed=seed)
+    best = loop.run()
+    click.echo(f"\nBest: experiment {best.experiment_num}, metric={best.metric:.4f}")
+    click.echo(f"Adapter: {best.adapter_path}")
+    click.echo(f"Report: {config.output_dir}/autoresearch_report.json")
 
 
 def main() -> None:

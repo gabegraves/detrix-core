@@ -36,6 +36,16 @@ mlflow = ["mlflow>=2.10.0"]
 observability = ["langfuse>=3.0.0"]
 bridge = ["fastapi>=0.115.0", "uvicorn>=0.32.0"]
 training = ["datasets>=2.18.0"]
+trainer = [
+    "torch>=2.0.0",
+    "transformers>=4.45.0",
+    "trl>=0.15.0",
+    "peft>=0.14.0",
+    "accelerate>=1.0.0",
+    "bitsandbytes>=0.45.0",
+    "unsloth>=2025.1",
+]
+grpo = ["openpipe-art[backend]>=0.5.17; python_version >= '3.11'"]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",

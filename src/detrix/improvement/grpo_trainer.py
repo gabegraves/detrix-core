@@ -7,7 +7,7 @@ import logging
 import os
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from detrix.core.trajectory import GovernedTrajectory
 from detrix.improvement.sft_trainer import TrainingResult
@@ -38,10 +38,11 @@ def trajectory_messages(trajectory: GovernedTrajectory) -> list[Message]:
 def _build_art_trajectory(trajectory: GovernedTrajectory) -> Any:
     from art.trajectories import Trajectory
 
+    trajectory_type = cast(Any, Trajectory)
     try:
-        return Trajectory(history=trajectory_messages(trajectory), reward=trajectory.governance_score)
+        return trajectory_type(history=trajectory_messages(trajectory), reward=trajectory.governance_score)
     except TypeError:
-        return Trajectory(messages=trajectory_messages(trajectory), reward=trajectory.governance_score)
+        return trajectory_type(messages=trajectory_messages(trajectory), reward=trajectory.governance_score)
 
 
 def governed_to_art_group(trajectory: GovernedTrajectory) -> Any:
@@ -53,17 +54,19 @@ def governed_to_art_group(trajectory: GovernedTrajectory) -> Any:
     """
     from art.trajectories import TrajectoryGroup
 
+    trajectory_group_type = cast(Any, TrajectoryGroup)
     art_trajectory = _build_art_trajectory(trajectory)
     try:
-        return TrajectoryGroup(trajectories=[art_trajectory], prompt=trajectory.prompt)
+        return trajectory_group_type(trajectories=[art_trajectory], prompt=trajectory.prompt)
     except TypeError:
-        return TrajectoryGroup(trajectories=[art_trajectory])
+        return trajectory_group_type(trajectories=[art_trajectory])
 
 
 def group_governed_trajectories(trajectories: list[GovernedTrajectory]) -> list[Any]:
     """Group comparable trajectories for GRPO by prompt and require reward variance."""
     from art.trajectories import TrajectoryGroup
 
+    trajectory_group_type = cast(Any, TrajectoryGroup)
     by_prompt: dict[str, list[GovernedTrajectory]] = defaultdict(list)
     for trajectory in trajectories:
         by_prompt[trajectory.prompt].append(trajectory)
@@ -76,9 +79,9 @@ def group_governed_trajectories(trajectories: list[GovernedTrajectory]) -> list[
             continue
         art_trajectories = [_build_art_trajectory(trajectory) for trajectory in prompt_trajectories]
         try:
-            groups.append(TrajectoryGroup(trajectories=art_trajectories, prompt=prompt))
+            groups.append(trajectory_group_type(trajectories=art_trajectories, prompt=prompt))
         except TypeError:
-            groups.append(TrajectoryGroup(trajectories=art_trajectories))
+            groups.append(trajectory_group_type(trajectories=art_trajectories))
     return groups
 
 
@@ -128,7 +131,7 @@ class DetrixGRPOTrainer:
             from art.local import LocalBackend
 
             backend = LocalBackend(path=adapter_path)
-            trainable_model = art.TrainableModel(
+            trainable_model: Any = art.TrainableModel(
                 project="detrix",
                 name=Path(adapter_path).name,
                 base_model=self.config.model_name,
@@ -136,13 +139,13 @@ class DetrixGRPOTrainer:
             await trainable_model.register(backend)
             await trainable_model.train(
                 groups,
-                config={
+                config=cast(Any, {
                     "learning_rate": self.config.learning_rate,
                     "max_steps": self.config.max_steps,
                     "lora_r": self.config.lora_r,
                     "lora_alpha": self.config.lora_alpha,
                     "lora_dropout": self.config.lora_dropout,
-                },
+                }),
             )
             return {"groups": float(len(groups))}
 

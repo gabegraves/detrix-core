@@ -29,7 +29,7 @@ class IngestResponse(BaseModel):
     count: int
 
 
-@app.post("/ingest", response_model=IngestResponse)
+@app.post("/ingest", response_model=IngestResponse)  # type: ignore[untyped-decorator]
 async def ingest(request: IngestRequest) -> IngestResponse:
     run_id = str(request.run_artifact.get("run_id", ""))
     audit = _get_audit()
@@ -59,7 +59,7 @@ async def ingest(request: IngestRequest) -> IngestResponse:
     )
 
 
-@app.get("/health")
+@app.get("/health")  # type: ignore[untyped-decorator]
 async def health() -> dict[str, str]:
     return {"status": "ok", "version": "0.1.0"}
 

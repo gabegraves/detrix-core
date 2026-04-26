@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from detrix.core.trajectory import GovernedTrajectory
+from detrix.runtime.version_tracker import (
+    VERSION_CONTAMINATED_REJECTION,
+    VersionFingerprint,
+)
 
 _UNSET = "__unset__"
 
@@ -38,6 +44,18 @@ class TrajectoryStore:
                     created_at       TEXT NOT NULL DEFAULT (datetime('now'))
                 )
             """)
+            self._ensure_column(conn, "governed_trajectories", "version_hash", "TEXT")
+            self._ensure_column(conn, "governed_trajectories", "exported_at", "TEXT")
+            self._ensure_column(conn, "governed_trajectories", "contaminated_at", "TEXT")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS trace_epochs (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    version_hash    TEXT NOT NULL UNIQUE,
+                    fingerprint_json TEXT NOT NULL,
+                    started_at      TEXT NOT NULL DEFAULT (datetime('now')),
+                    active          INTEGER NOT NULL DEFAULT 1
+                )
+            """)
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_traj_run_id ON governed_trajectories(run_id)"
             )
@@ -49,14 +67,25 @@ class TrajectoryStore:
                 "ON governed_trajectories(rejection_type)"
             )
 
+    @staticmethod
+    def _ensure_column(
+        conn: sqlite3.Connection, table: str, column: str, definition: str
+    ) -> None:
+        columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        if column not in columns:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
     def append(self, trajectory: GovernedTrajectory) -> None:
+        fingerprint = VersionFingerprint.from_trajectory(trajectory)
+        version_hash = fingerprint.hash
         with sqlite3.connect(self.db_path) as conn:
+            self._ensure_active_epoch(conn, fingerprint)
             conn.execute(
                 """INSERT INTO governed_trajectories
                    (trajectory_id, run_id, domain, schema_version,
                     governance_score, gate_pass_rate, rejection_type,
-                    model_version, started_at, finished_at, trajectory_json)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    model_version, started_at, finished_at, trajectory_json, version_hash)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     trajectory.trajectory_id,
                     trajectory.run_id,
@@ -69,6 +98,7 @@ class TrajectoryStore:
                     trajectory.started_at.isoformat(),
                     trajectory.finished_at.isoformat() if trajectory.finished_at else None,
                     trajectory.model_dump_json(),
+                    version_hash,
                 ),
             )
 
@@ -90,6 +120,66 @@ class TrajectoryStore:
             ).fetchall()
             return [GovernedTrajectory.model_validate_json(row[0]) for row in rows]
 
+    def _ensure_active_epoch(
+        self, conn: sqlite3.Connection, fingerprint: VersionFingerprint
+    ) -> None:
+        active = conn.execute(
+            "SELECT version_hash FROM trace_epochs WHERE active = 1 ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if active is not None and active[0] == fingerprint.hash:
+            return
+        self._flush_unexported_for_version_change(conn)
+        if active is not None:
+            conn.execute("UPDATE trace_epochs SET active = 0 WHERE active = 1")
+        conn.execute(
+            "INSERT OR IGNORE INTO trace_epochs (version_hash, fingerprint_json, active) "
+            "VALUES (?, ?, 1)",
+            (fingerprint.hash, fingerprint.to_json()),
+        )
+        conn.execute("UPDATE trace_epochs SET active = 1 WHERE version_hash = ?", (fingerprint.hash,))
+
+    def _flush_unexported_for_version_change(self, conn: sqlite3.Connection) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        rows = conn.execute(
+            """SELECT trajectory_id, trajectory_json
+               FROM governed_trajectories
+               WHERE rejection_type IS NULL AND exported_at IS NULL"""
+        ).fetchall()
+        for trajectory_id, trajectory_json in rows:
+            payload = json.loads(trajectory_json)
+            payload["rejection_type"] = VERSION_CONTAMINATED_REJECTION
+            conn.execute(
+                """UPDATE governed_trajectories
+                   SET rejection_type = ?, contaminated_at = ?, trajectory_json = ?
+                   WHERE trajectory_id = ?""",
+                (
+                    VERSION_CONTAMINATED_REJECTION,
+                    now,
+                    json.dumps(payload, default=str),
+                    trajectory_id,
+                ),
+            )
+
+    def mark_exported(self, trajectory_ids: list[str]) -> None:
+        """Mark trajectories as flushed/exported from the trace buffer."""
+        if not trajectory_ids:
+            return
+        placeholders = ",".join("?" for _ in trajectory_ids)
+        now = datetime.now(timezone.utc).isoformat()
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                f"UPDATE governed_trajectories SET exported_at = ? "
+                f"WHERE trajectory_id IN ({placeholders})",
+                [now, *trajectory_ids],
+            )
+
+    def current_version_hash(self) -> str | None:
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT version_hash FROM trace_epochs WHERE active = 1 ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            return str(row[0]) if row else None
+
     def query(
         self,
         domain: str | None = None,
@@ -99,6 +189,7 @@ class TrajectoryStore:
     ) -> list[GovernedTrajectory]:
         conditions: list[str] = []
         params: list[Any] = []
+        active_version_hash = self.current_version_hash()
 
         if domain is not None:
             conditions.append("domain = ?")
@@ -109,6 +200,9 @@ class TrajectoryStore:
         if rejection_type != _UNSET:
             if rejection_type is None:
                 conditions.append("rejection_type IS NULL")
+                if active_version_hash is not None:
+                    conditions.append("version_hash = ?")
+                    params.append(active_version_hash)
             else:
                 conditions.append("rejection_type = ?")
                 params.append(rejection_type)

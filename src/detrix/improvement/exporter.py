@@ -35,6 +35,7 @@ class TrainingExporter:
         with path.open("w", encoding="utf-8") as file:
             for trajectory in trajectories:
                 file.write(json.dumps(trajectory.to_sft_row()) + "\n")
+        self.store.mark_exported([trajectory.trajectory_id for trajectory in trajectories])
         return str(path)
 
     def export_grpo(
@@ -55,6 +56,7 @@ class TrainingExporter:
         with path.open("w", encoding="utf-8") as file:
             for trajectory in trajectories:
                 file.write(json.dumps(trajectory.to_grpo_row()) + "\n")
+        self.store.mark_exported([trajectory.trajectory_id for trajectory in trajectories])
         return str(path)
 
     def export_dpo(
@@ -72,8 +74,10 @@ class TrainingExporter:
             negative_by_prompt[trajectory.prompt].append(trajectory)
 
         path = self._prepare_output(output_path)
+        exported_positive_ids: list[str] = []
         with path.open("w", encoding="utf-8") as file:
             for positive_trajectory in positive:
+                wrote_pair = False
                 for negative_trajectory in negative_by_prompt.get(
                     positive_trajectory.prompt,
                     [],
@@ -88,6 +92,10 @@ class TrainingExporter:
                         )
                         + "\n"
                     )
+                    wrote_pair = True
+                if wrote_pair:
+                    exported_positive_ids.append(positive_trajectory.trajectory_id)
+        self.store.mark_exported(exported_positive_ids)
         return str(path)
 
     def to_dataset(
@@ -108,6 +116,7 @@ class TrainingExporter:
                 limit=limit,
             )
             rows = [trajectory.to_sft_row() for trajectory in trajectories]
+            self.store.mark_exported([trajectory.trajectory_id for trajectory in trajectories])
         elif format == "grpo":
             trajectories = self.store.query(
                 domain=domain,
@@ -116,6 +125,7 @@ class TrainingExporter:
                 limit=limit,
             )
             rows = [trajectory.to_grpo_row() for trajectory in trajectories]
+            self.store.mark_exported([trajectory.trajectory_id for trajectory in trajectories])
         elif format == "dpo":
             with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as tmp:
                 tmp_path = Path(tmp.name)

@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import click
 
@@ -147,6 +147,84 @@ def inspect(ctx: click.Context, run_id: str) -> None:
     click.echo(json.dumps(run_data, indent=2, default=str))
 
 
+@cli.command("show-run")
+@click.argument("run_id")
+@click.option("--db", default=None, help="Path to evidence.db (default: DATA_DIR/evidence.db)")
+@click.pass_context
+def show_run(ctx: click.Context, run_id: str, db: str | None) -> None:
+    """Show a governed run with gate verdicts and training eligibility."""
+    data_dir = ctx.obj["data_dir"]
+    audit = AuditLog(str(data_dir / "audit.db"))
+    run_data = audit.get_run(run_id)
+    if not run_data:
+        click.echo(f"Run '{run_id}' not found.")
+        sys.exit(1)
+
+    from detrix.runtime.trajectory_store import TrajectoryStore
+
+    evidence_db = db or str(data_dir / "evidence.db")
+    trajectories = TrajectoryStore(evidence_db).list_by_run(run_id)
+    _print_governed_run(run_data, trajectories)
+
+
+@cli.command("demo-yc")
+@click.option("--output-dir", "-o", default=None, help="Directory for demo artifacts")
+@click.option("--domain", default="support_triage", help="Demo trajectory domain")
+@click.pass_context
+def demo_yc(ctx: click.Context, output_dir: str | None, domain: str) -> None:
+    """Run the YC governance demo end-to-end."""
+    from detrix.adapters.axv2 import project_to_audit_log, run_artifact_to_trajectories
+    from detrix.demo.support_triage import build_demo_artifact
+    from detrix.improvement.exporter import TrainingExporter
+    from detrix.runtime.trajectory_store import TrajectoryStore
+
+    data_dir = ctx.obj["data_dir"]
+    data_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = Path(output_dir) if output_dir else data_dir / "demo"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+
+    artifact = build_demo_artifact()
+    run_id = str(artifact["run_id"])
+    audit = AuditLog(str(data_dir / "audit.db"))
+    store = TrajectoryStore(str(data_dir / "evidence.db"))
+
+    project_to_audit_log(artifact, audit)
+    trajectories = run_artifact_to_trajectories(artifact, domain=domain)
+    for trajectory in trajectories:
+        store.append(trajectory)
+
+    artifact_path = artifact_dir / f"{run_id}.governance.json"
+    artifact_path.write_text(json.dumps(artifact, indent=2, default=str) + "\n", encoding="utf-8")
+
+    exporter = TrainingExporter(store)
+    sft_path = exporter.export_sft(str(artifact_dir / f"{run_id}.sft.jsonl"), domain=domain)
+    dpo_path = exporter.export_dpo(str(artifact_dir / f"{run_id}.dpo.jsonl"), domain=domain)
+    grpo_path = exporter.export_grpo(str(artifact_dir / f"{run_id}.grpo.jsonl"), domain=domain)
+
+    click.echo("Detrix YC demo: autonomous agent output -> post-hoc gates -> training signal")
+    click.echo(f"Run ID: {run_id}")
+    click.echo(f"Artifact: {artifact_path}")
+    click.echo(f"SFT export: {sft_path} ({_line_count(sft_path)} rows)")
+    click.echo(f"DPO export: {dpo_path} ({_line_count(dpo_path)} rows)")
+    click.echo(f"GRPO export: {grpo_path} ({_line_count(grpo_path)} rows)")
+    click.echo()
+
+    run_data = audit.get_run(run_id)
+    if run_data is None:
+        raise click.ClickException(f"Run '{run_id}' was not persisted")
+    _print_governed_run(run_data, trajectories)
+
+    rejected = [trajectory for trajectory in trajectories if trajectory.rejection_type is not None]
+    if rejected:
+        click.echo()
+        click.echo("SFT guard:")
+        for trajectory in rejected:
+            try:
+                trajectory.to_sft_row()
+            except ValueError as exc:
+                click.echo(f"  blocked {trajectory.trajectory_id}: {exc}")
+
+
 @cli.command()
 @click.argument("run_a")
 @click.argument("run_b")
@@ -231,6 +309,39 @@ def export_artifact(
     artifact = RunArtifact.load(artifact_path)
     out_path = artifact.save(output)
     click.echo(f"Exported to {out_path}")
+
+
+def _print_governed_run(run_data: dict[str, Any], trajectories: list[Any]) -> None:
+    click.echo(f"Workflow: {run_data['workflow_name']} v{run_data['workflow_version']}")
+    click.echo(f"Status:   {str(run_data['status']).upper()}")
+    click.echo("Gate verdicts:")
+    for step in run_data.get("steps", []):
+        if step.get("gate_decision") is None:
+            continue
+        verdict = json.loads(step["gate_verdict_json"])
+        reasons = ",".join(verdict.get("reason_codes", [])) or "-"
+        evidence = verdict.get("evidence", {})
+        click.echo(
+            f"  {step['gate_id']:<22s} {step['gate_decision']:<18s} "
+            f"reasons={reasons} evidence={json.dumps(evidence, sort_keys=True)}"
+        )
+
+    click.echo("Terminal routes:")
+    for trajectory in trajectories:
+        completion = json.loads(trajectory.completion)
+        terminal = completion.get("terminal") or {}
+        route = terminal.get("verdict", "ACCEPT")
+        eligibility = terminal.get("training_eligibility", {})
+        click.echo(
+            f"  {trajectory.trajectory_id:<24s} route={route:<17s} "
+            f"rejection_type={trajectory.rejection_type or '-':<14s} "
+            f"training={json.dumps(eligibility, sort_keys=True)}"
+        )
+
+
+def _line_count(path: str) -> int:
+    with open(path, encoding="utf-8") as file:
+        return sum(1 for _ in file)
 
 
 @cli.command("train")

@@ -16,12 +16,15 @@ from detrix.runtime.audit import AuditLog
 _STATUS_DECISION_MAP: dict[tuple[str, str], Decision] = {
     ("passed", "continue"): Decision.ACCEPT,
     ("rejected", "halt_unknown"): Decision.UNKNOWN,
+    ("rejected", "request_more_data"): Decision.REQUEST_MORE_DATA,
     ("rejected", "downgrade_set"): Decision.CAUTION,
 }
 
 _TERMINAL_VERDICT_TO_REJECTION: dict[str, str | None] = {
     "ACCEPT": None,
     "SET": None,
+    "CAUTION": "output_quality",
+    "REJECT": "output_quality",
     "UNKNOWN": "output_quality",
     "REQUEST_MORE_DATA": "input_quality",
 }
@@ -65,7 +68,7 @@ def project_to_audit_log(artifact: dict[str, Any], audit: AuditLog) -> None:
 
     record = RunRecord(
         run_id=run_id,
-        workflow_name="axv2-import",
+        workflow_name=str(artifact.get("workflow_name", "axv2-import")),
         workflow_version=str(artifact.get("pipeline_version", "unknown")),
         started_at=started_at,
         finished_at=finished_at,
@@ -126,6 +129,7 @@ def run_artifact_to_trajectories(
     started_at = _parse_timestamp(artifact.get("timestamp"))
     gate_history = list(artifact.get("gate_history", []))
     terminal_routes: dict[str, dict[str, Any]] = dict(artifact.get("terminal_routes", {}))
+    sample_prompts: dict[str, Any] = dict(artifact.get("sample_prompts", {}))
     steps = list(artifact.get("steps", []))
 
     records_by_sample: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -156,7 +160,12 @@ def run_artifact_to_trajectories(
                 trajectory_id=f"{run_id}-{sample_id}",
                 run_id=run_id,
                 domain=domain,
-                prompt=json.dumps({"sample_id": sample_id, "steps": steps}, default=str),
+                prompt=str(
+                    sample_prompts.get(
+                        sample_id,
+                        json.dumps({"sample_id": sample_id, "steps": steps}, default=str),
+                    )
+                ),
                 completion=json.dumps(
                     {"verdicts": verdicts, "terminal": terminal}
                     if terminal is not None

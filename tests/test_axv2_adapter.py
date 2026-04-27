@@ -55,6 +55,19 @@ class TestGateRecordToVerdict:
         verdict = gate_record_to_verdict(record)
         assert verdict.decision == Decision.CAUTION
 
+    def test_rejected_request_more_data_maps_to_request_more_data(self) -> None:
+        record = {
+            "sample_id": "sample_004",
+            "gate_name": "evidence_gate",
+            "status": "rejected",
+            "decision": "request_more_data",
+            "reason_codes": ["missing_evidence"],
+            "evidence": {"missing": ["confidence"]},
+        }
+        verdict = gate_record_to_verdict(record)
+        assert verdict.decision == Decision.REQUEST_MORE_DATA
+        assert verdict.reason_codes == ["missing_evidence"]
+
     def test_missing_optional_fields_default_safely(self) -> None:
         record = {
             "sample_id": "s1",

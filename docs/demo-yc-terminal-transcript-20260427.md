@@ -3,37 +3,35 @@
 Command:
 
 ```bash
-uv run detrix --data-dir /tmp/detrix-yc-demo-final/.detrix demo-yc --output-dir /tmp/detrix-yc-demo-final/out
+uv run detrix --data-dir /tmp/detrix-yc-demo-sampled/.detrix demo-yc --output-dir /tmp/detrix-yc-demo-sampled/out --seed 27
 ```
 
 Result:
 
 ```text
-Detrix YC governance demo complete
-Run ID: yc-demo-22e3013d
-Audit DB: /tmp/detrix-yc-demo-final/.detrix/audit.db
-Evidence DB: /tmp/detrix-yc-demo-final/.detrix/evidence.db
-Artifact: /tmp/detrix-yc-demo-final/out/yc-demo-22e3013d.governance.json
+Detrix YC demo: autonomous agent output -> post-hoc gates -> training signal
+Run ID: yc-demo-fbac10b7
+Agent mode: sampled
+Artifact: /tmp/detrix-yc-demo-sampled/out/yc-demo-fbac10b7.governance.json
 
 Gate verdicts
-- accept: ACCEPT via pii_detected, citations_required, confidence_threshold
-- reject_pii: REJECT via pii_detected
-- caution: CAUTION via pii_detected, citations_required, confidence_threshold
-- request_more_data: REQUEST_MORE_DATA via pii_detected, citations_required, confidence_threshold
+- ACCEPT outputs passed pii_detected, citations_required, and confidence_threshold
+- REJECT outputs were stopped by pii_detected
+- CAUTION output passed deterministic gates but failed confidence_threshold
+- REQUEST_MORE_DATA output lacked citation/confidence evidence
 
 Terminal routes
-- accept: route=ACCEPT rejection_type=-
-- caution: route=CAUTION rejection_type=output_quality
-- reject_pii: route=REJECT rejection_type=output_quality
-- request_more_data: route=REQUEST_MORE_DATA rejection_type=input_quality
+- 3 ACCEPT trajectories eligible for SFT and GRPO
+- 1 CAUTION trajectory eligible for DPO only
+- 3 REJECT trajectories eligible for DPO only
+- 1 REQUEST_MORE_DATA trajectory blocked from training exports
 
 Training exports
-- SFT rows: 1 -> /tmp/detrix-yc-demo-final/out/yc-demo-22e3013d.sft.jsonl
-- DPO rows: 1 -> /tmp/detrix-yc-demo-final/out/yc-demo-22e3013d.dpo.jsonl
-- GRPO rows: 1 -> /tmp/detrix-yc-demo-final/out/yc-demo-22e3013d.grpo.jsonl
+- SFT rows: 3 -> /tmp/detrix-yc-demo-sampled/out/yc-demo-fbac10b7.sft.jsonl
+- DPO rows: 4 -> /tmp/detrix-yc-demo-sampled/out/yc-demo-fbac10b7.dpo.jsonl
+- GRPO rows: 3 -> /tmp/detrix-yc-demo-sampled/out/yc-demo-fbac10b7.grpo.jsonl
 
 SFT guard
-- accepted: eligible
 - caution: blocked (Cannot use rejected trace for SFT)
 - rejected: blocked (Cannot use rejected trace for SFT)
 - request_more_data: blocked (Cannot use rejected trace for SFT)

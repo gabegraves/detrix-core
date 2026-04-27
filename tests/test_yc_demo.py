@@ -13,7 +13,7 @@ from detrix.runtime.trajectory_store import TrajectoryStore
 
 
 def test_support_triage_demo_artifact_has_all_terminal_routes() -> None:
-    artifact = build_demo_artifact()
+    artifact = build_demo_artifact(mode="deterministic")
 
     routes = {
         sample_id: route["verdict"]
@@ -30,7 +30,7 @@ def test_support_triage_demo_artifact_has_all_terminal_routes() -> None:
 
 
 def test_demo_adapter_preserves_prompts_and_rejection_types() -> None:
-    artifact = build_demo_artifact()
+    artifact = build_demo_artifact(mode="deterministic")
     trajectories = run_artifact_to_trajectories(artifact, domain="support_triage")
 
     by_sample = {
@@ -46,7 +46,7 @@ def test_demo_adapter_preserves_prompts_and_rejection_types() -> None:
 
 
 def test_training_exports_include_accepted_and_dpo_but_block_rejected_sft(tmp_path) -> None:
-    artifact = build_demo_artifact()
+    artifact = build_demo_artifact(mode="deterministic")
     store = TrajectoryStore(str(tmp_path / "evidence.db"))
     for trajectory in run_artifact_to_trajectories(artifact, domain="support_triage"):
         store.append(trajectory)
@@ -84,6 +84,8 @@ def test_demo_yc_cli_and_show_run_surface(tmp_path) -> None:
             "--data-dir",
             str(data_dir),
             "demo-yc",
+            "--mode",
+            "deterministic",
             "--output-dir",
             str(output_dir),
         ],
@@ -111,3 +113,27 @@ def test_demo_yc_cli_and_show_run_surface(tmp_path) -> None:
     assert "Gate verdicts:" in show_result.output
     assert "Terminal routes:" in show_result.output
     assert "pii_detected" in show_result.output
+
+
+def test_sampled_demo_agent_varies_outputs_but_keeps_route_coverage() -> None:
+    first = build_demo_artifact(mode="sampled", seed=7, sample_count=8)
+    second = build_demo_artifact(mode="sampled", seed=11, sample_count=8)
+
+    first_completions = {
+        route["agent_completion"]
+        for route in first["terminal_routes"].values()
+    }
+    second_completions = {
+        route["agent_completion"]
+        for route in second["terminal_routes"].values()
+    }
+    first_routes = {
+        route["verdict"]
+        for route in first["terminal_routes"].values()
+    }
+
+    assert first["agent_mode"] == "sampled"
+    assert first["model_versions"]["agent"] == "stochastic-support-agent-v1"
+    assert len(first["terminal_routes"]) == 8
+    assert {"ACCEPT", "REJECT", "CAUTION", "REQUEST_MORE_DATA"} <= first_routes
+    assert first_completions != second_completions

@@ -170,8 +170,24 @@ def show_run(ctx: click.Context, run_id: str, db: str | None) -> None:
 @cli.command("demo-yc")
 @click.option("--output-dir", "-o", default=None, help="Directory for demo artifacts")
 @click.option("--domain", default="support_triage", help="Demo trajectory domain")
+@click.option(
+    "--mode",
+    type=click.Choice(["sampled", "deterministic"]),
+    default="sampled",
+    show_default=True,
+    help="Agent output mode. sampled varies support responses; deterministic is for tests.",
+)
+@click.option("--seed", type=int, default=None, help="Seed sampled mode for a repeatable demo run")
+@click.option("--sample-count", type=int, default=8, show_default=True, help="Number of sampled agent outputs")
 @click.pass_context
-def demo_yc(ctx: click.Context, output_dir: str | None, domain: str) -> None:
+def demo_yc(
+    ctx: click.Context,
+    output_dir: str | None,
+    domain: str,
+    mode: Literal["sampled", "deterministic"],
+    seed: int | None,
+    sample_count: int,
+) -> None:
     """Run the YC governance demo end-to-end."""
     from detrix.adapters.axv2 import project_to_audit_log, run_artifact_to_trajectories
     from detrix.demo.support_triage import build_demo_artifact
@@ -183,7 +199,7 @@ def demo_yc(ctx: click.Context, output_dir: str | None, domain: str) -> None:
     artifact_dir = Path(output_dir) if output_dir else data_dir / "demo"
     artifact_dir.mkdir(parents=True, exist_ok=True)
 
-    artifact = build_demo_artifact()
+    artifact = build_demo_artifact(mode=mode, seed=seed, sample_count=sample_count)
     run_id = str(artifact["run_id"])
     audit = AuditLog(str(data_dir / "audit.db"))
     store = TrajectoryStore(str(data_dir / "evidence.db"))
@@ -203,6 +219,7 @@ def demo_yc(ctx: click.Context, output_dir: str | None, domain: str) -> None:
 
     click.echo("Detrix YC demo: autonomous agent output -> post-hoc gates -> training signal")
     click.echo(f"Run ID: {run_id}")
+    click.echo(f"Agent mode: {artifact.get('agent_mode', mode)}")
     click.echo(f"Artifact: {artifact_path}")
     click.echo(f"SFT export: {sft_path} ({_line_count(sft_path)} rows)")
     click.echo(f"DPO export: {dpo_path} ({_line_count(dpo_path)} rows)")

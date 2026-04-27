@@ -4,16 +4,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+import random
 import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 from detrix.core.governance import Decision, GateContext, GovernanceGate, VerdictContract
 
 DEMO_DOMAIN = "support_triage"
 DEMO_VERSION = "support-triage-demo-v1"
+AgentMode = Literal["deterministic", "sampled"]
 
 _EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
 _PHONE_RE = re.compile(r"\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b")
@@ -24,6 +26,14 @@ _CITATION_RE = re.compile(r"\[(?:kb|policy|source):[^\]]+\]", re.IGNORECASE)
 @dataclass(frozen=True)
 class DemoCase:
     sample_id: str
+    prompt: str
+    completion: str
+    confidence: float | None
+    expected_route: str
+
+
+@dataclass(frozen=True)
+class ResponseVariant:
     prompt: str
     completion: str
     confidence: float | None
@@ -177,12 +187,62 @@ def default_demo_cases() -> list[DemoCase]:
     ]
 
 
-def run_demo_agent() -> list[DemoCase]:
-    """Return fixed outputs as a deterministic stand-in for an autonomous pi agent."""
-    return default_demo_cases()
+def run_demo_agent(
+    *,
+    mode: AgentMode = "sampled",
+    seed: int | None = None,
+    sample_count: int = 8,
+) -> list[DemoCase]:
+    """Produce support-response outputs for post-hoc governance.
+
+    ``deterministic`` keeps a stable regression fixture. ``sampled`` is the
+    live-demo path: it samples from multiple plausible agent completions so the
+    gates evaluate output variation instead of a fixed four-row script.
+    """
+    if mode == "deterministic":
+        return default_demo_cases()
+    if mode != "sampled":
+        raise ValueError(f"Unsupported demo agent mode: {mode}")
+    return sampled_demo_cases(seed=seed, sample_count=sample_count)
 
 
-def evaluate_cases(cases: list[DemoCase]) -> dict[str, Any]:
+def sampled_demo_cases(*, seed: int | None = None, sample_count: int = 8) -> list[DemoCase]:
+    rng = random.Random(seed)
+    variants = _response_bank()
+    by_route: dict[str, list[ResponseVariant]] = {}
+    for variant in variants:
+        by_route.setdefault(variant.expected_route, []).append(variant)
+
+    required_routes = ["ACCEPT", "REJECT", "CAUTION", "REQUEST_MORE_DATA"]
+    selected = [rng.choice(by_route[route]) for route in required_routes]
+    remaining_count = max(0, sample_count - len(selected))
+    selected.extend(rng.choice(variants) for _ in range(remaining_count))
+    rng.shuffle(selected)
+
+    cases: list[DemoCase] = []
+    for index, variant in enumerate(selected, start=1):
+        route_slug = variant.expected_route.lower()
+        digest = _hash_payload(
+            {
+                "index": index,
+                "prompt": variant.prompt,
+                "completion": variant.completion,
+                "seed": seed,
+            }
+        )[:6]
+        cases.append(
+            DemoCase(
+                sample_id=f"{route_slug}_{index}_{digest}",
+                prompt=variant.prompt,
+                completion=variant.completion,
+                confidence=variant.confidence,
+                expected_route=variant.expected_route,
+            )
+        )
+    return cases
+
+
+def evaluate_cases(cases: list[DemoCase], *, mode: AgentMode = "sampled") -> dict[str, Any]:
     gates: list[GovernanceGate] = [PiiGate(), CitationsGate(), ConfidenceGate()]
     gate_history: list[dict[str, Any]] = []
     terminal_routes: dict[str, dict[str, Any]] = {}
@@ -214,6 +274,7 @@ def evaluate_cases(cases: list[DemoCase]) -> dict[str, Any]:
         "workflow_name": "yc-support-triage-demo",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "pipeline_version": DEMO_VERSION,
+        "agent_mode": mode,
         "config_hash": _hash_payload({"domain": DEMO_DOMAIN, "version": DEMO_VERSION}),
         "input_file_hash": None,
         "steps": [
@@ -223,15 +284,155 @@ def evaluate_cases(cases: list[DemoCase]) -> dict[str, Any]:
         ],
         "success": True,
         "total_duration_ms": 325.0,
-        "model_versions": {"agent": "deterministic-demo-agent-v1"},
+        "model_versions": {
+            "agent": (
+                "deterministic-demo-agent-v1"
+                if mode == "deterministic"
+                else "stochastic-support-agent-v1"
+            )
+        },
         "sample_prompts": sample_prompts,
         "gate_history": gate_history,
         "terminal_routes": terminal_routes,
     }
 
 
-def build_demo_artifact() -> dict[str, Any]:
-    return evaluate_cases(run_demo_agent())
+def build_demo_artifact(
+    *,
+    mode: AgentMode = "sampled",
+    seed: int | None = None,
+    sample_count: int = 8,
+) -> dict[str, Any]:
+    return evaluate_cases(
+        run_demo_agent(mode=mode, seed=seed, sample_count=sample_count),
+        mode=mode,
+    )
+
+
+def _response_bank() -> list[ResponseVariant]:
+    refund_prompt = (
+        "Customer asks for a refund on a premium support plan after a documented outage. "
+        "Draft the safe support response and cite policy."
+    )
+    enterprise_prompt = (
+        "Customer asks whether a custom enterprise clause overrides the standard SLA. "
+        "Draft the response."
+    )
+    billing_prompt = (
+        "Customer reports a billing issue but the ticket has no account ID or policy "
+        "reference. Draft the response."
+    )
+    escalation_prompt = (
+        "Customer reports that an agent changed production settings overnight. "
+        "Draft the first support response and cite the incident policy."
+    )
+    return [
+        ResponseVariant(
+            prompt=refund_prompt,
+            completion=(
+                "Offer a prorated refund for the documented outage and explain the next "
+                "billing adjustment. [policy:refund-outage-sla]"
+            ),
+            confidence=0.93,
+            expected_route="ACCEPT",
+        ),
+        ResponseVariant(
+            prompt=refund_prompt,
+            completion=(
+                "Acknowledge the outage, confirm the SLA credit window, and avoid quoting "
+                "account-specific details until identity is verified. [policy:refund-outage-sla]"
+            ),
+            confidence=0.88,
+            expected_route="ACCEPT",
+        ),
+        ResponseVariant(
+            prompt=escalation_prompt,
+            completion=(
+                "Open an incident review, preserve audit logs, and pause automated changes "
+                "until the owner approves rollback. [policy:production-change-incident]"
+            ),
+            confidence=0.86,
+            expected_route="ACCEPT",
+        ),
+        ResponseVariant(
+            prompt=refund_prompt,
+            completion=(
+                "Offer a refund and include the account owner's email jane.customer@example.com "
+                "for follow-up. [policy:refund-outage-sla]"
+            ),
+            confidence=0.91,
+            expected_route="REJECT",
+        ),
+        ResponseVariant(
+            prompt=escalation_prompt,
+            completion=(
+                "Tell them the on-call engineer will call 415-555-0198 and include the "
+                "incident summary. [policy:production-change-incident]"
+            ),
+            confidence=0.84,
+            expected_route="REJECT",
+        ),
+        ResponseVariant(
+            prompt=refund_prompt,
+            completion=(
+                "Process the refund against SSN 123-45-6789 after confirming the outage "
+                "window. [policy:refund-outage-sla]"
+            ),
+            confidence=0.8,
+            expected_route="REJECT",
+        ),
+        ResponseVariant(
+            prompt=enterprise_prompt,
+            completion=(
+                "Say the standard outage refund probably applies, but ask legal to verify. "
+                "[kb:enterprise-contract-review]"
+            ),
+            confidence=0.62,
+            expected_route="CAUTION",
+        ),
+        ResponseVariant(
+            prompt=escalation_prompt,
+            completion=(
+                "Recommend a rollback if the customer confirms business impact, but do not "
+                "promise remediation yet. [kb:incident-response]"
+            ),
+            confidence=0.68,
+            expected_route="CAUTION",
+        ),
+        ResponseVariant(
+            prompt=enterprise_prompt,
+            completion=(
+                "The custom clause may supersede the standard SLA; route to contract review "
+                "before promising a credit. [kb:enterprise-contract-review]"
+            ),
+            confidence=0.71,
+            expected_route="CAUTION",
+        ),
+        ResponseVariant(
+            prompt=billing_prompt,
+            completion="Ask for the account identifier and outage window before deciding.",
+            confidence=None,
+            expected_route="REQUEST_MORE_DATA",
+        ),
+        ResponseVariant(
+            prompt=billing_prompt,
+            completion=(
+                "Request the invoice number, impacted service dates, and the relevant plan "
+                "tier before quoting the refund policy."
+            ),
+            confidence=None,
+            expected_route="REQUEST_MORE_DATA",
+        ),
+        ResponseVariant(
+            prompt=enterprise_prompt,
+            completion=(
+                "Ask for the enterprise order form and the clause ID before interpreting "
+                "whether the standard SLA applies."
+            ),
+            confidence=None,
+            expected_route="REQUEST_MORE_DATA",
+        ),
+    ]
 
 
 def _terminal_route(case: DemoCase, verdicts: list[VerdictContract]) -> dict[str, Any]:

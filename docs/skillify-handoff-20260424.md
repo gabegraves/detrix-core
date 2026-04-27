@@ -1,10 +1,19 @@
 # Handoff: Automated Skillify Loop for AgentXRD v2
 
-**Date:** 2026-04-24
+**Date:** 2026-04-24 (updated 2026-04-27)
 **Epic:** detrix-core-j0v
-**Branch:** main (create feature branch `feat/skillify-loop` before starting)
+**Branch:** `feat/skillify-loop` (exists, pushed to origin)
 **Target runtime:** Qwen 3.6 via vLLM on pi agent harness
 **Build tools:** uv (never pip), pytest, ruff, mypy
+
+## Current Status
+
+- **Wave 1 COMPLETE:** `detrix-core-7oy` closed. Commit `b4aa96e`. 14 tests passing.
+- **Wave 2 READY:** `detrix-core-1n5`, `detrix-core-hv7`, `detrix-core-twj` all unblocked.
+- **Wave 3 BLOCKED** by `detrix-core-1n5` (wrong-side gate).
+- **Wave 4 BLOCKED** by all of Wave 2+3.
+- **Other work landed since:** `4dfb9ff` training loop, `ec88b3d` transformers upgrade for Qwen 3.6.
+- **New epic** `detrix-core-82i` (ml-intern governance) depends on `detrix-core-twj`.
 
 ---
 
@@ -33,21 +42,67 @@ The core insight: "the latent space builds the deterministic tool, then the dete
 ## Beads Task Graph
 
 ```
-detrix-core-7oy: Skill Registry schema + SQLite store     [READY — start here]
-    ├── detrix-core-1n5: Wrong-Side Detection Gate          [blocked by 7oy]
-    │       ├── detrix-core-3kz: Skill Generator            [blocked by 7oy, 1n5]
-    │       └── detrix-core-czm: Skill-aware scoring + GRPO [blocked by 7oy, 1n5]
-    ├── detrix-core-hv7: Skill Routing Validator            [blocked by 7oy]
-    └── detrix-core-twj: Version-aware trace flush          [blocked by 7oy]
+detrix-core-7oy: Skill Registry schema + SQLite store     [✓ DONE — b4aa96e]
+    ├── detrix-core-1n5: Wrong-Side Detection Gate          [READY — P1, critical path]
+    │       ├── detrix-core-3kz: Skill Generator            [blocked by 1n5]
+    │       └── detrix-core-czm: Skill-aware scoring + GRPO [blocked by 1n5]
+    ├── detrix-core-hv7: Skill Routing Validator            [READY — P2]
+    └── detrix-core-twj: Version-aware trace flush          [READY — P2, also blocks 82i.6]
 
 detrix-core-2qt: Skillify Pipeline Orchestrator             [blocked by 1n5, 3kz, hv7, czm]
 ```
 
 **Wave execution order:**
-- Wave 1: `detrix-core-7oy` (Skill Registry)
-- Wave 2 (parallel): `detrix-core-1n5` (Wrong-Side Gate), `detrix-core-hv7` (Routing Validator), `detrix-core-twj` (Version Flush)
+- ~~Wave 1: `detrix-core-7oy` (Skill Registry)~~ **DONE**
+- **Wave 2 (parallel, DO NEXT):** `detrix-core-1n5` (Wrong-Side Gate), `detrix-core-hv7` (Routing Validator), `detrix-core-twj` (Version Flush)
 - Wave 3 (parallel): `detrix-core-3kz` (Skill Generator), `detrix-core-czm` (Skill-Aware Scoring)
 - Wave 4: `detrix-core-2qt` (Skillify Orchestrator)
+
+## Reuse Map: Mission-Control + AgentXRD_v2 Patterns
+
+Research (2026-04-24 session) identified production-proven patterns to borrow:
+
+### Mission-Control (`/home/gabriel/mission-control/`)
+
+| Pattern | MC File | Borrow For |
+|---------|---------|------------|
+| Deterministic→LLM→deterministic sandwich | `lib/self-improvement/skill-update-judge.ts:251-270` (`judgeSkillUpdate()`) | Routing validator: precheck → verify → postcheck |
+| Blockers-list → decision | `skill-update-judge.ts:81-132` (`heuristicJudge()`) | Wrong-side gate: accumulate skipped tools → CAUTION |
+| SHA256 content hashing for dedup | `skill-update-applier.ts:71-73` | Version tracker: hash gate+evaluator versions |
+| Secret/injection detection patterns | `skill-update-judge.ts:35-37` | Future: skill content safety gate |
+
+### AgentXRD_v2 (`/home/gabriel/Desktop/AgentXRD_v2/`)
+
+| Pattern | AXV2 File | Borrow For |
+|---------|-----------|------------|
+| Accumulate-failures evaluate() | `src/axa/confidence/gates.py:87-179` | Wrong-side gate evaluate() structure |
+| `QualityGateResult(passed, failures, warnings)` | `gates.py:30-35` | Result shape for all validators |
+| `GateRecord` + `TerminalRoute` | `src/axa/orchestrator/governance.py` | Already adapted in `adapters/axv2.py` — template for VerdictContract |
+| Configurable thresholds dataclass | `QualityGates` at `gates.py:19-26` | WrongSideConfig |
+
+### Detrix-Core (direct reuse)
+
+| What | File:Lines | Used By |
+|------|-----------|---------|
+| `GovernanceGate` ABC | `governance.py:73-91` | 1n5: subclass |
+| `VerdictContract`, `Decision.CAUTION` | `governance.py:12-60` | 1n5: return type |
+| `SkillStore.get_tools_for_domain()` | `skill_store.py:158-164` | 1n5: load tools |
+| `SkillStore.find_routing()`, `list_skills()` | `skill_store.py:122-189` | hv7: validate routes |
+| `_stable_hash()` | `core/cache.py` | twj: version hash |
+| `TrajectoryStore._init_db()` pattern | `trajectory_store.py:22-50` | twj: schema migration |
+| `gate_record_to_verdict()` | `adapters/axv2.py:37-52` | 1n5: VerdictContract template |
+
+### Shared Prerequisite: Add `list_routings()` to SkillStore
+
+`ReachabilityAuditor` (hv7) needs to iterate all routing entries. Add ~10 lines to `skill_store.py` following existing `list_skills()` pattern:
+```python
+def list_routings(self, limit: int = 500) -> list[SkillRouting]:
+    with sqlite3.connect(self.db_path) as conn:
+        rows = conn.execute(
+            "SELECT routing_json FROM skill_routings ORDER BY id LIMIT ?", (limit,)
+        ).fetchall()
+        return [SkillRouting.model_validate_json(row[0]) for row in rows]
+```
 
 ## Task Specifications
 
@@ -292,16 +347,36 @@ Step 10: Activate — Set skill status from "candidate" to "active"
 
 5. **Agent-editable governance.** Skills and routing are stored in SQLite config the agent can query. Don't hardcode thresholds.
 
-## How to Start
+## How to Start (Wave 2)
 
 ```bash
 cd ~/Desktop/detrix-core
-git checkout -b feat/skillify-loop
-bd update detrix-core-7oy --claim
-bd ready  # confirms 7oy is ready
-# implement skill registry, commit, close:
-bd close detrix-core-7oy --reason="Skill Registry schema + SQLite store implemented"
-bd ready  # should unblock 1n5, hv7, twj for Wave 2
+git checkout feat/skillify-loop
+bd ready                           # confirms 1n5, hv7, twj are ready
+
+# Claim all three (parallel)
+bd update detrix-core-1n5 --claim  # P1, critical path — do first
+bd update detrix-core-hv7 --claim
+bd update detrix-core-twj --claim
+
+# Implement, commit each separately:
+# 1n5: wrong_side_gate.py + tests
+git add src/detrix/core/wrong_side_gate.py tests/test_wrong_side_gate.py
+git commit -m "feat: wrong-side detection gate — Tier 3 behavioral verification (detrix-core-1n5)"
+
+# hv7: list_routings() addition + skill_validator.py + tests
+git add src/detrix/runtime/skill_store.py src/detrix/improvement/skill_validator.py tests/test_skill_validator.py
+git commit -m "feat: skill routing validator + reachability auditor (detrix-core-hv7)"
+
+# twj: version_tracker.py + trajectory_store.py migration + tests
+git add src/detrix/runtime/version_tracker.py src/detrix/runtime/trajectory_store.py tests/test_version_tracker.py
+git commit -m "feat: version-aware trace buffer flush (detrix-core-twj)"
+
+# Verify, close, push
+uv run pytest -v && uv run ruff check . && uv run mypy src/detrix
+bd close detrix-core-1n5 detrix-core-hv7 detrix-core-twj
+git push
+bd ready  # should unblock 3kz, czm for Wave 3
 ```
 
 ## Verification

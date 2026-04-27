@@ -1,0 +1,333 @@
+# YC GTM Demo And Outreach Plan - 2026-04-27
+
+Status: approved brainstorming spec for the 2026-04-27 to 2026-05-04 YC customer-discovery sprint.
+
+Scope: demo narrative, first customer wedge, customer-repo implementation model, Langfuse trace-diagnosis boundary, and open-core moat. This is a planning artifact, not an implementation claim.
+
+## Core Question
+
+The demo and outreach should answer one customer question:
+
+> If we let an AI agent touch expensive technical work, how do we know which outputs are safe to promote, which need expert review, and which failures should become future eval or training signal?
+
+The problem is not "teams need another agent framework." The problem is that teams already have agents, traces, Claude/Codex reviews, and observability tools, but still lack a defensible production decision boundary.
+
+## Positioning
+
+One-line positioning:
+
+> Run agents where sensitive data already lives. Detrix adds local governance, clarification, audit trails, and promotion evidence so repo, database, and science agents can move from impressive demos to defensible production.
+
+Short customer-facing version:
+
+> Your agent already creates traces. Detrix tells you which traces are safe, which ones are liabilities, and which failures should become tomorrow's evals or training data.
+
+Do not pitch Detrix as:
+
+- a generic pipeline framework
+- a replacement for pi, LangGraph, Langfuse, Braintrust, or Claude/Codex
+- a trace viewer
+- "fine-tune on traces" by itself
+- a horizontal RLVR platform before customer urgency is proven
+
+Pitch Detrix as:
+
+- a local-first governance and improvement layer for production-agent reliability
+- post-hoc evaluation of agent outputs, not action-space wrapping
+- a way to turn failures into structured eval, training, and promotion evidence
+- a private deployment path for sensitive repos, databases, and domain workflows
+
+## ICP Decision
+
+Materials science remains the proof domain. It is not the only first customer wedge.
+
+Primary customer-discovery wedge:
+
+> Applied AI, platform, or product engineering teams with production or near-production agents touching customers, regulated workflows, code, data, financial decisions, scientific work, or internal operations where errors are expensive.
+
+Outreach allocation for this sprint:
+
+- 70% production-agent reliability teams
+- 30% materials, science, R&D, and technical-workflow teams
+
+The hair-on-fire customer is not simply "materials teams." The hotter pain is likely teams that already tried to deploy agents and hit production failures, audit gaps, human-review bottlenecks, or trace-review overload.
+
+Signals to prioritize:
+
+- agents already in production or pilot
+- customer-facing or regulated outputs
+- high manual review cost
+- Langfuse, LangSmith, Braintrust, or custom tracing already installed
+- public discussion of evals, hallucinations, tool failures, or reliability
+- team cannot send sensitive traces to large providers
+- unclear promotion process for model, prompt, skill, or policy changes
+
+## Demo Architecture
+
+The demo should be problem-first and artifact-backed:
+
+1. Open with production-agent incident framing.
+2. Show a hard-mode proof domain where wrong acceptance is worse than abstention.
+3. Replay one AgentXRD-style artifact or governed run.
+4. Show Detrix ingesting and normalizing run evidence.
+5. Show gate verdicts: accept, reject, caution, request more data, support-only.
+6. Show Mission Control or CLI evidence: run, artifact, gate, verdict, reason, lineage.
+7. Show the failure converted into eval/training eligibility, not automatically promoted.
+8. Close by mapping the same pattern to support, finance, coding, database, and science agents.
+
+AgentXRD is the evidence source and domain narrative. It should not be overclaimed as a live customer-ready product. The safe claim is that it demonstrates a high-stakes abstention and domain-gate pattern.
+
+Safe demo claims:
+
+- Detrix captures runs, gates, verdicts, and evidence.
+- Detrix separates accepted, rejected, abstained, and support-only outputs.
+- Detrix creates audit-ready traces and training or eval rows from governed outcomes.
+- AgentXRD is proof that domain gates matter when wrong acceptance is costly.
+
+Unsafe demo claims:
+
+- AgentXRD is broadly customer-ready.
+- Detrix prevents every production failure.
+- Detrix has already proven quality improvement on real customer production traces.
+- Mission Control already proves measured self-improvement.
+- Local Qwen or pi is the main reason buyers care.
+
+## Customer Repo And Database Implementation
+
+Detrix should not require customers to upload sensitive repos, DB rows, or traces to Detrix Cloud.
+
+Default architecture:
+
+1. `detrix init` inside the customer repo or VPC.
+2. `.detrix/policy.yaml` defines allowed sources, forbidden paths/tables, PII rules, egress policy, and model endpoints.
+3. Read-only connectors parse repos, DB replicas, logs, traces, CI output, and pi/LangGraph agent events.
+4. A privacy ingress pipeline validates, classifies, redacts, minimizes, and normalizes data before storage.
+5. Evidence lands in customer-controlled SQLite or Postgres.
+6. Local model routing uses Qwen/vLLM/Ollama or customer-approved endpoints by policy.
+7. Remote provider calls are disabled unless explicitly allowed.
+8. Export defaults to signed summaries, hashes, metrics, schemas, and failure taxonomies, not raw payloads.
+
+Fail closed rules:
+
+- no policy means no sensitive parse
+- no egress approval means no external model/provider call
+- no baseline means no improvement claim
+- no resolved clarification means no promotion
+- no gate-passed provenance means no training/export eligibility
+
+## Clarification Loop
+
+Detrix should ask questions the way strong planning tools do: after context gathering, one high-leverage question at a time, only when the system lacks authority or evidence.
+
+Clarification should be a product state, not just chat behavior.
+
+Required `ClarificationState` fields:
+
+- `run_id`
+- `question_id`
+- `blocking_gate`
+- `missing_evidence`
+- `question`
+- `allowed_responses`
+- `assumptions`
+- `non_goals`
+- `resolved_by`
+- `resume_command`
+
+Promotion, export, or training eligibility must pause until required clarification is resolved.
+
+## Langfuse Boundary
+
+Detrix should integrate with Langfuse, not compete with it as a trace viewer.
+
+Mission Control evidence shows the distinction clearly:
+
+- Langfuse-style collection and readback are useful for observability.
+- Trace review can produce suggestions and audit artifacts.
+- That does not prove quality improvement unless baselines, post-change measurements, and replay/eval outcomes exist.
+
+Observed local Mission Control state on 2026-04-27:
+
+- `langfuse_traces`: 3159
+- `improvement_suggestions`: 1258
+- applied suggestions: 52
+- `suggestion_effectiveness`: 0
+- `audit_session_grades`: 0
+
+Interpretation:
+
+> Mission Control proves the cockpit and diagnosis substrate. It does not yet prove the measured improvement loop.
+
+Customer response when they already use Langfuse:
+
+> Good. Detrix should use your Langfuse traces. Langfuse tells you what happened. Detrix turns those traces into governed failure taxonomies, replayable evals, training eligibility, and promotion evidence.
+
+Detrix adds:
+
+- failure taxonomy
+- deterministic and domain-specific gates
+- trace eligibility filters
+- replayable eval set construction
+- before/after promotion packets
+- regression accounting
+- local/private data handling
+- clarification states for missing evidence
+- governed training/export rows
+
+Core boundary:
+
+> Trace diagnosis is the input, not the product. The product is the governed decision: reject, ask, fix, replay, promote, or train.
+
+## Open-Core Moat
+
+If Detrix is open source and runs locally with Qwen inside a pi agent harness, customers should not pay for the basic local loop.
+
+Free/open core:
+
+- local runner
+- canonical schemas
+- SQLite/Postgres evidence store
+- pi/Qwen/Ollama/vLLM support
+- basic gates
+- simple local reports
+- Langfuse/JSONL trace import
+
+Paid surfaces:
+
+- domain gate packs
+- private deployment appliance
+- VPC or air-gapped install support
+- SSO/RBAC/SCIM/audit retention
+- benchmark suites and holdouts
+- CI promotion gates
+- signed evidence bundles
+- governed improvement runs
+- custom repo, database, and science workflow integrations
+- support, SLA, and compliance documentation
+
+The moat is not the harness, model, or trace viewer. The moat is:
+
+- validated gates customers trust more than LLM judges
+- holdout benchmarks that become acceptance standards
+- failure taxonomies and governed trace metadata
+- promotion evidence showing improvement without regression
+- private deployment expertise for sensitive data environments
+- workflow-specific integration depth
+
+## Outreach Plan
+
+Primary target titles:
+
+- Head of AI
+- Applied AI lead
+- AI platform lead
+- product engineering lead for agent workflows
+- CTO/founder of vertical AI product
+- R&D automation lead
+- scientific computing lead
+- data platform lead with AI-agent ownership
+
+Problem-led outbound angle:
+
+> Saw you are working on production agents/evals/tracing. Curious how you decide when an agent output is safe to promote versus requiring human review. We are building a local-first governance layer that turns traces into gate verdicts, clarification states, and replayable eval/training signal. Are you already seeing failures that observability alone does not resolve?
+
+Discovery questions:
+
+- Where are agents already touching real users, code, data, or decisions?
+- What happens when the agent is wrong?
+- How do you know a trace is safe to learn from?
+- What must be true before a model, prompt, policy, or skill change is promoted?
+- Which data cannot leave your environment?
+- Do you already use Langfuse, LangSmith, Braintrust, or a custom trace store?
+- What do those tools still not answer for you?
+- Would you pay for a one-workflow pilot that produces a promotion packet and replayable eval set?
+
+Commitment ladder:
+
+1. Problem interview.
+2. Private trace/audit review on one workflow.
+3. Written pilot scope with named workflow and success metric.
+4. Paid founding pilot.
+5. Design-partner LOI if payment is blocked.
+
+Weak signals:
+
+- generic interest
+- no named workflow
+- no painful failure mode
+- no data access path
+- no owner for promotion decisions
+- "we already have Langfuse" with no unresolved reliability pain
+
+## First Pilot Shape
+
+The first customer pilot should not be "install the whole platform."
+
+Pilot promise:
+
+> In one week, Detrix will connect to one sensitive agent workflow, ingest local traces or artifacts, classify failures, add one to three deterministic/domain gates, and produce a promotion packet showing what is safe, unsafe, unknown, and eligible for eval/training.
+
+Pilot deliverables:
+
+- local install or VPC sidecar
+- policy file and egress map
+- one connector
+- one normalized artifact schema
+- one to three gates
+- trace failure taxonomy
+- clarification queue
+- replay/eval set from real failures
+- promotion packet
+
+Success metric examples:
+
+- reduce unclassified failures by 50%
+- identify top three repeat failure modes from production traces
+- create a regression set from ten real failures
+- block unsafe promotion when required evidence is missing
+- prove no regression on the existing holdout replay
+- generate training/export rows only from gate-passed traces
+
+## Required Build Implications
+
+Current repo assets:
+
+- bridge ingestion exists
+- AXV2 adapter exists
+- audit and trajectory stores exist
+- governed trajectory/export concepts exist
+- Langfuse observer exists
+- Mission Control can collect Detrix audit DBs
+- `REQUEST_MORE_DATA` exists as a verdict concept
+
+Missing for this product shape:
+
+- adapter registry
+- pi extension implementation
+- privacy ingress policy layer
+- redaction/minimization middleware
+- customer repo/DB connectors
+- persisted clarification queue
+- Langfuse import to canonical artifact schema
+- baseline snapshot capture
+- suggestion/effectiveness measurement loop
+- promotion packet generator
+- signed evidence bundle export
+
+The immediate implementation plan after this spec should be a narrow proof path:
+
+1. Define canonical trace/artifact payload plus sensitivity profile.
+2. Add adapter registry with AXV2 and Langfuse/JSONL import.
+3. Add policy-gated privacy ingress.
+4. Persist clarification states.
+5. Generate a promotion packet from one replayed artifact set.
+
+## Final Demo Close
+
+Use this close:
+
+> Observability tells you what happened. Detrix tells you what is safe to do next.
+
+Expanded close:
+
+> Your agents already produce traces. Your team can already ask Claude or Codex to inspect them. The missing layer is a governed decision boundary: which traces are safe, which failures need clarification, which fixes actually improve a replay set, and which outcomes are eligible for training or promotion. That is Detrix.

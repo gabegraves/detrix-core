@@ -22,6 +22,7 @@ _STATUS_DECISION_MAP: dict[tuple[str, str], Decision] = {
 
 _TERMINAL_VERDICT_TO_REJECTION: dict[str, str | None] = {
     "ACCEPT": None,
+    "ACCEPT_TEST_READY": None,
     "SET": None,
     "CAUTION": "output_quality",
     "REJECT": "output_quality",

@@ -274,6 +274,20 @@ class TestRunArtifactToTrajectories:
         assert len(trajectories) == 1
         assert trajectories[0].rejection_type == "input_quality"
 
+    def test_request_more_data_with_sft_false_stays_input_quality(self) -> None:
+        artifact = _make_artifact(
+            terminal_routes={
+                "s1": {
+                    "sample_id": "s1",
+                    "verdict": "REQUEST_MORE_DATA",
+                    "training_eligibility": {"sft": False, "dpo": False, "grpo": False},
+                },
+            },
+        )
+        trajectories = run_artifact_to_trajectories(artifact)
+        assert len(trajectories) == 1
+        assert trajectories[0].rejection_type == "input_quality"
+
     def test_artifact_with_no_gates_produces_trajectory_with_zero_score(self) -> None:
         artifact = _make_artifact()
         trajectories = run_artifact_to_trajectories(artifact)

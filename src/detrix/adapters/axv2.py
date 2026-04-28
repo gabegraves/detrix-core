@@ -270,6 +270,9 @@ def _sample_rejection_type(
     to decide SFT/export admission because diagnostic SET-like rows can be
     support-only, accept-ineligible, or truth-blocked.
     """
+    if terminal and str(terminal.get("verdict", "")) == "REQUEST_MORE_DATA":
+        return "input_quality"
+
     explicit = _explicit_training_rejection(terminal)
     if explicit is not None:
         return explicit

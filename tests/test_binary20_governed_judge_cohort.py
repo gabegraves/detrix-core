@@ -43,6 +43,13 @@ def _jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
 
 
+def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+    path.write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+
+
 def test_binary20_demo_exits_zero_and_writes_required_outputs(tmp_path: Path) -> None:
     result, output_dir = _run_demo(tmp_path, _binary20_artifact())
 
@@ -56,6 +63,95 @@ def test_binary20_demo_exits_zero_and_writes_required_outputs(tmp_path: Path) ->
         "judge_gate_disagreement_matrix.json",
         "training_route_recommendations.json",
         "binary20_governed_judge_report.md",
+    }:
+        assert (output_dir / filename).exists(), filename
+
+
+def test_binary20_demo_writes_failure_harness_artifacts_when_seed_files_exist(
+    tmp_path: Path,
+) -> None:
+    diagnostics_dir = tmp_path / "diagnostics"
+    cohort_dir = diagnostics_dir / "binary20_governed_judge_cohort_v0"
+    router_dir = diagnostics_dir / "pxrd_failure_router_v0"
+    cohort_dir.mkdir(parents=True)
+    router_dir.mkdir(parents=True)
+    artifact_path = cohort_dir / "artifact.json"
+    output_dir = tmp_path / "demo"
+    artifact_path.write_text(json.dumps(_binary20_artifact()), encoding="utf-8")
+    _write_jsonl(
+        cohort_dir / "row_packets.jsonl",
+        [
+            {
+                "sample_id": "sample-00",
+                "promotion_audit_bucket": "SUPPORT_ONLY_BLOCKED",
+                "reason_codes": ["support_only", "accept_eligible_false"],
+                "candidate_cif_provenance": [],
+                "pawley_rietveld_metrics": {},
+            }
+        ],
+    )
+    _write_jsonl(
+        cohort_dir / "trace_to_pxrd_packet_map.jsonl",
+        [
+            {
+                "sample_id": "sample-00",
+                "trace_id": "lf-trace-sample-00",
+                "observation_id": "lf-obs-sample-00",
+            }
+        ],
+    )
+    _write_jsonl(
+        router_dir / "router_decisions.jsonl",
+        [
+            {
+                "sample_id": "sample-00",
+                "blocker_class": "SUPPORT_ONLY_BLOCKED",
+                "blocking_fields": ["support_only", "accept_eligible"],
+                "next_allowed_action": "calibration_only_review",
+                "wrong_accept_risk": False,
+            }
+        ],
+    )
+    (router_dir / "summary.json").write_text(
+        json.dumps(
+            {
+                "blocker_counts": {"SUPPORT_ONLY_BLOCKED": 1},
+                "wrong_accept_count": 0,
+                "support_only_accept_violation_count": 0,
+                "accept_ineligible_accept_violation_count": 0,
+                "sft_positive_count": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--artifact",
+            str(artifact_path),
+            "--output-dir",
+            str(output_dir),
+            "--local",
+        ],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    for filename in {
+        "raw_langfuse_traces.jsonl",
+        "normalized_observations.jsonl",
+        "trace_to_agentxrd_packet_map.jsonl",
+        "failure_patterns.jsonl",
+        "failure_pattern_summary.json",
+        "governed_next_actions.jsonl",
+        "provenance_dag.jsonl",
+        "promotion_packet.json",
+        "drift_replay_report.json",
     }:
         assert (output_dir / filename).exists(), filename
 

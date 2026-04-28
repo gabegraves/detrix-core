@@ -411,6 +411,9 @@ def _write_harness_artifacts_if_available(*, artifact_path: Path, output_dir: Pa
     )
     from detrix.agentxrd.provenance import build_agentxrd_provenance_dag
 
+    raw_langfuse_traces = output_dir / "raw_langfuse_traces.jsonl"
+    if not raw_langfuse_traces.exists():
+        _write_jsonl(raw_langfuse_traces, [])
     normalized_observations = output_dir / "normalized_observations.jsonl"
     if not normalized_observations.exists():
         _write_jsonl(normalized_observations, [])

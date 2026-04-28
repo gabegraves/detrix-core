@@ -8,7 +8,7 @@ Scope: demo narrative, first customer wedge, customer-repo implementation model,
 
 The demo and outreach should answer one customer question:
 
-> If we let an AI agent touch expensive technical work, how do we know which outputs are safe to promote, which need expert review, and which failures should become future eval or training signal?
+> If we let an AI agent touch expensive technical work, how do we know not only which outputs are safe, but which next corrective experiment is allowed, evidence-backed, policy-compliant, and worth running?
 
 The problem is not "teams need another agent framework." The problem is that teams already have agents, traces, Claude/Codex reviews, and observability tools, but still lack a defensible production decision boundary.
 
@@ -20,7 +20,7 @@ One-line positioning:
 
 Short customer-facing version:
 
-> Your agent already creates traces. Detrix tells you which traces are safe, which ones are liabilities, and which failures should become tomorrow's evals or training data.
+> Your agent already creates traces. Detrix turns failed traces into governed next actions: diagnose, propose a bounded fix or experiment, policy-check data and resources, execute, compare evidence delta, and stop at ACCEPT, SET, REQUEST_MORE_DATA, or a hard policy limit.
 
 Do not pitch Detrix as:
 
@@ -35,7 +35,35 @@ Pitch Detrix as:
 - a local-first governance and improvement layer for production-agent reliability
 - post-hoc evaluation of agent outputs, not action-space wrapping
 - a way to turn failures into structured eval, training, and promotion evidence
+- a governed self-correction loop for high-stakes agents, not just a trace classifier
+- a policy-checked action recommender that decides what experiment may run next
+- an evidence-delta comparator that proves whether the next run improved the decision boundary
 - a private deployment path for sensitive repos, databases, and domain workflows
+
+## Moat And Defensibility
+
+Do not frame the moat as "we use Claude/Codex/Qwen as a judge" or "we fine-tune on traces." Those are implementation tactics and are easy to copy.
+
+The defensible asset is the compounding validated decision boundary per domain:
+
+- failure corpora with near misses, false accepts, support-only cases, and ambiguous cases
+- deterministic gate semantics that encode what counts as valid evidence
+- provenance rules for what may become benchmark-grade, eval-only, or training-positive
+- action policies for which next experiments are allowed after failure
+- evidence-delta ledgers that prove whether a retry improved the decision boundary
+- calibration and wrong-accept analysis over held-out replay surfaces
+- governed SFT/DPO/GRPO exports that exclude unsafe or unverified traces
+
+The customer can use Claude or Codex to inspect one trace. Detrix should be the reusable system that decides what survived, what failed, what may be tried next, and what is safe to learn from.
+
+Near-term domain packs:
+
+- XRD / scientific instrumentation: PXRD gates, CIF provenance, Pawley/Rietveld evidence, support-only rules, terminal routes, and wrong-ACCEPT constraints.
+- Options trading / market agents: real-priced evidence, replay/live parity, risk gates, stale-data gates, alert hygiene, and promotion packets for strategies or alerts.
+
+YC-safe claim:
+
+> Detrix compounds domain-specific reliability assets. Each deployment creates reusable gates, evals, provenance rules, failure taxonomies, calibration data, action policies, and governed training traces.
 
 ## ICP Decision
 
@@ -68,12 +96,15 @@ The demo should be problem-first and artifact-backed:
 
 1. Open with production-agent incident framing.
 2. Show a hard-mode proof domain where wrong acceptance is worse than abstention.
-3. Replay one AgentXRD-style artifact or governed run.
-4. Show Detrix ingesting and normalizing run evidence.
-5. Show gate verdicts: accept, reject, caution, request more data, support-only.
-6. Show Mission Control or CLI evidence: run, artifact, gate, verdict, reason, lineage.
-7. Show the failure converted into eval/training eligibility, not automatically promoted.
-8. Close by mapping the same pattern to support, finance, coding, database, and science agents.
+3. Replay one AgentXRD-style artifact or governed run that failed or abstained.
+4. Diagnose why the run failed or abstained.
+5. Propose the next allowed scientific or workflow action: more data, candidate expansion, refinement retry, policy-safe replay, or stop.
+6. Policy-check data access, compute budget, external sources, support-only status, and promotion eligibility.
+7. Execute one bounded experiment or replay when policy allows it.
+8. Compare evidence delta against the prior run.
+9. Iterate until ACCEPT, SET, REQUEST_MORE_DATA, or a hard policy/resource limit.
+10. Export eval/training rows only when deterministic gates and provenance allow it.
+11. Close by mapping the same pattern to support, finance, coding, database, and science agents.
 
 AgentXRD is the evidence source and domain narrative. It should not be overclaimed as a live customer-ready product. The safe claim is that it demonstrates a high-stakes abstention and domain-gate pattern.
 
@@ -99,7 +130,7 @@ Detrix should not require customers to upload sensitive repos, DB rows, or trace
 Default architecture:
 
 1. `detrix init` inside the customer repo or VPC.
-2. `.detrix/policy.yaml` defines allowed sources, forbidden paths/tables, PII rules, egress policy, and model endpoints.
+2. `.detrix/policy.yaml` defines allowed sources, forbidden paths/tables, PII rules, egress policy, model endpoints, allowed experiment actions, max iterations, resource budgets, allowed artifact sources, support-only handling, promotion eligibility rules, and stop conditions.
 3. Read-only connectors parse repos, DB replicas, logs, traces, CI output, and pi/LangGraph agent events.
 4. A privacy ingress pipeline validates, classifies, redacts, minimizes, and normalizes data before storage.
 5. Evidence lands in customer-controlled SQLite or Postgres.
@@ -114,6 +145,10 @@ Fail closed rules:
 - no baseline means no improvement claim
 - no resolved clarification means no promotion
 - no gate-passed provenance means no training/export eligibility
+- no allowed next action means no experiment execution
+- no resource budget means no bounded replay or training run
+- no evidence delta means no improvement claim
+- hard policy limit routes to REQUEST_MORE_DATA or blocked, never silent continuation
 
 ## Clarification Loop
 
@@ -313,6 +348,11 @@ Missing for this product shape:
 - suggestion/effectiveness measurement loop
 - promotion packet generator
 - signed evidence bundle export
+- next-action recommendation schema
+- policy-checked experiment runner
+- iteration ledger with prior evidence, experiment action, new evidence, and delta
+- hard stop evaluator for policy, budget, provenance, and promotion limits
+- AgentXRD-style terminal verdict mapping: ACCEPT, SET, REQUEST_MORE_DATA, blocked
 
 The immediate implementation plan after this spec should be a narrow proof path:
 
@@ -321,13 +361,14 @@ The immediate implementation plan after this spec should be a narrow proof path:
 3. Add policy-gated privacy ingress.
 4. Persist clarification states.
 5. Generate a promotion packet from one replayed artifact set.
+6. Add a governed-next-action packet that records diagnosis, allowed action, policy checks, execution result, evidence delta, and terminal route.
 
 ## Final Demo Close
 
 Use this close:
 
-> Observability tells you what happened. Detrix tells you what is safe to do next.
+> Observability tells you what happened. Detrix tells you what is safe to do next — and keeps trying policy-compliant experiments until the workflow reaches ACCEPT, SET, REQUEST_MORE_DATA, or a hard stop.
 
 Expanded close:
 
-> Your agents already produce traces. Your team can already ask Claude or Codex to inspect them. The missing layer is a governed decision boundary: which traces are safe, which failures need clarification, which fixes actually improve a replay set, and which outcomes are eligible for training or promotion. That is Detrix.
+> Your agents already produce traces. Your team can already ask Claude or Codex to inspect them. The missing layer is a governed self-correction boundary: which traces are safe, which failures need clarification, which next experiments are allowed, which fixes actually improve a replay set, when to ask for more data, and which outcomes are eligible for training or promotion. That is Detrix.

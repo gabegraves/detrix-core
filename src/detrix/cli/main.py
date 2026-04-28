@@ -242,6 +242,161 @@ def demo_yc(
                 click.echo(f"  blocked {trajectory.trajectory_id}: {exc}")
 
 
+@cli.group("agentxrd")
+def agentxrd() -> None:
+    """AgentXRD-specific governance harness commands."""
+
+
+@agentxrd.command("build-harness-evidence")
+@click.option("--binary20-artifact", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--row-packets", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--trace-packet-map", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--router-decisions", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--router-summary", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option(
+    "--mission-control-db",
+    type=click.Path(exists=True, path_type=Path),
+    default=Path("/home/gabriel/.mission-control/data.db"),
+    show_default=True,
+)
+@click.option("--langfuse-project", default="AgentXRD_v2", show_default=True)
+@click.option("--output-dir", type=click.Path(path_type=Path), required=True)
+def agentxrd_build_harness_evidence(
+    binary20_artifact: Path,
+    row_packets: Path,
+    trace_packet_map: Path,
+    router_decisions: Path,
+    router_summary: Path,
+    mission_control_db: Path,
+    langfuse_project: str,
+    output_dir: Path,
+) -> None:
+    """Build AgentXRD failure-governance harness evidence artifacts."""
+    summary = _build_agentxrd_harness_evidence(
+        binary20_artifact=binary20_artifact,
+        row_packets=row_packets,
+        trace_packet_map=trace_packet_map,
+        router_decisions=router_decisions,
+        router_summary=router_summary,
+        mission_control_db=mission_control_db,
+        langfuse_project=langfuse_project,
+        output_dir=output_dir,
+    )
+    click.echo(f"Wrote AgentXRD harness evidence to {output_dir}")
+    click.echo(
+        "Rows: "
+        f"{summary['row_count']}; "
+        f"Langfuse observations: {summary['langfuse_observation_count']}; "
+        f"promotion: {summary['promotion_packet']['promote']}"
+    )
+
+
+def _build_agentxrd_harness_evidence(
+    *,
+    binary20_artifact: Path,
+    row_packets: Path,
+    trace_packet_map: Path,
+    router_decisions: Path,
+    router_summary: Path,
+    mission_control_db: Path,
+    langfuse_project: str,
+    output_dir: Path,
+) -> dict[str, Any]:
+    from detrix.agentxrd.drift_replay import run_drift_replay
+    from detrix.agentxrd.failure_patterns import build_failure_pattern_corpus
+    from detrix.agentxrd.langfuse_importer import (
+        MissionControlLangfuseSource,
+        import_agentxrd_langfuse_traces,
+    )
+    from detrix.agentxrd.next_actions import build_governed_next_actions
+    from detrix.agentxrd.promotion_packet import (
+        AgentXRDPromotionMetrics,
+        build_promotion_packet,
+    )
+    from detrix.agentxrd.provenance import build_agentxrd_provenance_dag
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    import_agentxrd_langfuse_traces(
+        source=MissionControlLangfuseSource(
+            db_path=mission_control_db,
+            live_enabled=False,
+        ),
+        project=langfuse_project,
+        output_dir=output_dir,
+    )
+    summary = build_failure_pattern_corpus(
+        binary20_artifact=binary20_artifact,
+        row_packets=row_packets,
+        trace_packet_map=trace_packet_map,
+        router_decisions=router_decisions,
+        router_summary=router_summary,
+        normalized_observations=output_dir / "normalized_observations.jsonl",
+        output_dir=output_dir,
+    )
+    (output_dir / "trace_to_agentxrd_packet_map.jsonl").write_text(
+        trace_packet_map.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    build_governed_next_actions(
+        output_dir / "failure_patterns.jsonl",
+        output_dir / "governed_next_actions.jsonl",
+    )
+    build_agentxrd_provenance_dag(
+        detrix_artifact=binary20_artifact,
+        trace_packet_map=trace_packet_map,
+        row_packets=row_packets,
+        output_path=output_dir / "provenance_dag.jsonl",
+    )
+    router = json.loads(router_summary.read_text(encoding="utf-8"))
+    pattern_rows = [
+        json.loads(line)
+        for line in (output_dir / "failure_patterns.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
+    packet = build_promotion_packet(
+        AgentXRDPromotionMetrics(
+            row_count=summary.row_count,
+            wrong_accept_count=int(router.get("wrong_accept_count", 0)),
+            support_only_accept_violation_count=int(
+                router.get("support_only_accept_violation_count", 0)
+            ),
+            accept_ineligible_accept_violation_count=int(
+                router.get("accept_ineligible_accept_violation_count", 0)
+            ),
+            truth_blocked_positive_count=sum(
+                1
+                for row in pattern_rows
+                if row.get("deterministic_export_label") == "sft_positive"
+                and row.get("truth_flags", {}).get("truth_blocked") is True
+            ),
+            provisional_positive_count=sum(
+                1
+                for row in pattern_rows
+                if row.get("deterministic_export_label") == "sft_positive"
+                and row.get("truth_flags", {}).get("provisional") is True
+            ),
+            sft_positive_count=summary.sft_positive_count,
+        )
+    )
+    (output_dir / "promotion_packet.json").write_text(
+        packet.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+    drift = run_drift_replay(
+        binary20_artifact=binary20_artifact,
+        router_summary=router_summary,
+        output_path=output_dir / "drift_replay_report.json",
+        proposed_metrics={"sft_positive_count": summary.sft_positive_count},
+    )
+    return {
+        **summary.model_dump(),
+        "promotion_packet": packet.model_dump(),
+        "drift_replay": drift.model_dump(),
+    }
+
+
 @cli.command()
 @click.argument("run_a")
 @click.argument("run_b")

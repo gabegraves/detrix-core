@@ -386,7 +386,80 @@ def run_demo(*, artifact_path: Path, output_dir: Path, domain: str, local: bool)
     (output_dir / "binary20_governed_judge_report.md").write_text(
         _report(summary, export_rows), encoding="utf-8"
     )
+    _write_harness_artifacts_if_available(artifact_path=artifact_path, output_dir=output_dir)
     return summary
+
+
+def _write_harness_artifacts_if_available(*, artifact_path: Path, output_dir: Path) -> None:
+    cohort_dir = artifact_path.parent
+    diagnostics_dir = cohort_dir.parent
+    row_packets = cohort_dir / "row_packets.jsonl"
+    trace_packet_map = cohort_dir / "trace_to_pxrd_packet_map.jsonl"
+    router_dir = diagnostics_dir / "pxrd_failure_router_v0"
+    router_decisions = router_dir / "router_decisions.jsonl"
+    router_summary = router_dir / "summary.json"
+    required = [row_packets, trace_packet_map, router_decisions, router_summary]
+    if not all(path.exists() for path in required):
+        return
+
+    from detrix.agentxrd.drift_replay import run_drift_replay
+    from detrix.agentxrd.failure_patterns import build_failure_pattern_corpus
+    from detrix.agentxrd.next_actions import build_governed_next_actions
+    from detrix.agentxrd.promotion_packet import (
+        AgentXRDPromotionMetrics,
+        build_promotion_packet,
+    )
+    from detrix.agentxrd.provenance import build_agentxrd_provenance_dag
+
+    normalized_observations = output_dir / "normalized_observations.jsonl"
+    if not normalized_observations.exists():
+        _write_jsonl(normalized_observations, [])
+    summary = build_failure_pattern_corpus(
+        binary20_artifact=artifact_path,
+        row_packets=row_packets,
+        trace_packet_map=trace_packet_map,
+        router_decisions=router_decisions,
+        router_summary=router_summary,
+        normalized_observations=normalized_observations,
+        output_dir=output_dir,
+    )
+    (output_dir / "trace_to_agentxrd_packet_map.jsonl").write_text(
+        trace_packet_map.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    build_governed_next_actions(
+        output_dir / "failure_patterns.jsonl",
+        output_dir / "governed_next_actions.jsonl",
+    )
+    build_agentxrd_provenance_dag(
+        detrix_artifact=artifact_path,
+        trace_packet_map=trace_packet_map,
+        row_packets=row_packets,
+        output_path=output_dir / "provenance_dag.jsonl",
+    )
+    router = json.loads(router_summary.read_text(encoding="utf-8"))
+    packet = build_promotion_packet(
+        AgentXRDPromotionMetrics(
+            row_count=summary.row_count,
+            wrong_accept_count=int(router.get("wrong_accept_count", 0)),
+            support_only_accept_violation_count=int(
+                router.get("support_only_accept_violation_count", 0)
+            ),
+            accept_ineligible_accept_violation_count=int(
+                router.get("accept_ineligible_accept_violation_count", 0)
+            ),
+            truth_blocked_positive_count=0,
+            provisional_positive_count=0,
+            sft_positive_count=summary.sft_positive_count,
+        )
+    )
+    _write_json(output_dir / "promotion_packet.json", packet.model_dump())
+    run_drift_replay(
+        binary20_artifact=artifact_path,
+        router_summary=router_summary,
+        output_path=output_dir / "drift_replay_report.json",
+        proposed_metrics={"sft_positive_count": summary.sft_positive_count},
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:

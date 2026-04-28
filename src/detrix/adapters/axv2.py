@@ -149,7 +149,7 @@ def run_artifact_to_trajectories(
         passed = sum(1 for record in sample_records if record.get("status") == "passed")
         gate_pass_rate = passed / total if total else 0.0
         terminal = terminal_routes.get(sample_id)
-        rejection_type = _terminal_rejection_type(terminal)
+        rejection_type = _sample_rejection_type(terminal, sample_records)
         evaluator_versions = {
             str(record.get("gate_name", "unknown")): "axv2-import"
             for record in sample_records
@@ -257,3 +257,57 @@ def _terminal_rejection_type(terminal: dict[str, Any] | None) -> str | None:
         str(terminal.get("verdict", "UNKNOWN")),
         "output_quality",
     )
+
+
+def _sample_rejection_type(
+    terminal: dict[str, Any] | None,
+    sample_records: list[dict[str, Any]],
+) -> str | None:
+    """Classify training admission from explicit domain eligibility first.
+
+    AXV2 terminal verdicts are user-facing scientific routes. They are not enough
+    to decide SFT/export admission because diagnostic SET-like rows can be
+    support-only, accept-ineligible, or truth-blocked.
+    """
+    explicit = _explicit_training_rejection(terminal)
+    if explicit is not None:
+        return explicit
+
+    for record in sample_records:
+        evidence = record.get("evidence", {})
+        if not isinstance(evidence, dict):
+            continue
+        explicit = _explicit_training_rejection(evidence)
+        if explicit is not None:
+            return explicit
+
+    return _terminal_rejection_type(terminal)
+
+
+def _explicit_training_rejection(payload: dict[str, Any] | None) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+
+    if payload.get("support_only") is True:
+        return "output_quality"
+    if payload.get("accept_eligible") is False:
+        return "output_quality"
+
+    truth_grade = str(payload.get("truth_grade", "")).lower()
+    if "provisional" in truth_grade or "truth_block" in truth_grade:
+        return "input_quality"
+
+    flags = payload.get("truth_flags", {})
+    if isinstance(flags, dict) and (
+        flags.get("truth_blocked") is True or flags.get("provisional") is True
+    ):
+        return "input_quality"
+
+    eligibility = payload.get("training_eligibility", {})
+    if isinstance(eligibility, dict) and eligibility.get("sft") is False:
+        reason = str(eligibility.get("reason", "")).lower()
+        if any(token in reason for token in ("truth", "provisional", "missing", "request")):
+            return "input_quality"
+        return "output_quality"
+
+    return None

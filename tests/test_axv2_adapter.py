@@ -314,6 +314,138 @@ class TestRunArtifactToTrajectories:
         assert passed[0].gate_pass_rate == 1.0
         assert failed[0].gate_pass_rate == 0.5
 
+    def test_training_eligibility_sft_false_rejects_set_terminal_route(self) -> None:
+        artifact = _make_artifact(
+            gate_history=[
+                {
+                    "sample_id": "set-row",
+                    "gate_name": "agentxrd_scientist_review_gate_v0",
+                    "status": "rejected",
+                    "decision": "downgrade_set",
+                    "evidence": {
+                        "training_eligibility": {
+                            "sft": False,
+                            "dpo": True,
+                            "grpo": False,
+                            "eval_only": True,
+                            "reason": "accept_eligible_false",
+                        },
+                        "accept_eligible": False,
+                    },
+                },
+            ],
+            terminal_routes={
+                "set-row": {
+                    "sample_id": "set-row",
+                    "verdict": "SET",
+                    "training_eligibility": {
+                        "sft": False,
+                        "dpo": True,
+                        "grpo": False,
+                        "eval_only": True,
+                        "reason": "accept_eligible_false",
+                    },
+                },
+            },
+        )
+
+        trajectories = run_artifact_to_trajectories(artifact)
+
+        assert len(trajectories) == 1
+        assert trajectories[0].rejection_type is not None
+        assert "Cannot use rejected trace for SFT" in _sft_error(trajectories[0])
+
+    def test_support_only_gate_evidence_rejects_accept_terminal_route(self) -> None:
+        artifact = _make_artifact(
+            gate_history=[
+                {
+                    "sample_id": "support-row",
+                    "gate_name": "agentxrd_scientist_review_gate_v0",
+                    "status": "passed",
+                    "decision": "continue",
+                    "evidence": {
+                        "support_only": True,
+                        "accept_eligible": False,
+                        "training_eligibility": {
+                            "sft": False,
+                            "dpo": True,
+                            "grpo": False,
+                            "eval_only": True,
+                            "reason": "support_only_public_cif_not_accept_eligible",
+                        },
+                    },
+                },
+            ],
+            terminal_routes={
+                "support-row": {
+                    "sample_id": "support-row",
+                    "verdict": "ACCEPT",
+                    "training_eligibility": {
+                        "sft": False,
+                        "dpo": True,
+                        "grpo": False,
+                        "eval_only": True,
+                        "reason": "support_only_public_cif_not_accept_eligible",
+                    },
+                },
+            },
+        )
+
+        trajectories = run_artifact_to_trajectories(artifact)
+
+        assert len(trajectories) == 1
+        assert trajectories[0].rejection_type is not None
+
+    def test_clean_accepted_fixture_remains_export_eligible(self) -> None:
+        artifact = _make_artifact(
+            gate_history=[
+                {
+                    "sample_id": "clean-row",
+                    "gate_name": "agentxrd_scientist_review_gate_v0",
+                    "status": "passed",
+                    "decision": "continue",
+                    "evidence": {
+                        "support_only": False,
+                        "accept_eligible": True,
+                        "training_eligibility": {
+                            "sft": True,
+                            "dpo": False,
+                            "grpo": True,
+                            "eval_only": False,
+                            "reason": "deterministic_gates_reference_eligible",
+                        },
+                    },
+                },
+            ],
+            terminal_routes={
+                "clean-row": {
+                    "sample_id": "clean-row",
+                    "verdict": "ACCEPT",
+                    "training_eligibility": {
+                        "sft": True,
+                        "dpo": False,
+                        "grpo": True,
+                        "eval_only": False,
+                        "reason": "deterministic_gates_reference_eligible",
+                    },
+                },
+            },
+        )
+
+        trajectories = run_artifact_to_trajectories(artifact)
+
+        assert len(trajectories) == 1
+        assert trajectories[0].rejection_type is None
+        assert trajectories[0].to_sft_row()["prompt"]
+
+
+def _sft_error(trajectory) -> str:
+    try:
+        trajectory.to_sft_row()
+    except ValueError as exc:
+        return str(exc)
+    return ""
+
 
 def _make_artifact(
     gate_history: list[dict[str, object]] | None = None,

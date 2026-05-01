@@ -643,6 +643,36 @@ def autoresearch(
     click.echo(f"Report: {config.output_dir}/autoresearch_report.json")
 
 
+@cli.command("triage")
+@click.argument("traces_path", type=click.Path(exists=True))
+@click.option("--output", "-o", default=None, help="Output markdown file path")
+@click.option("--title", default="Detrix Trace Triage Report", help="Report title")
+@click.option("--min-confidence", default=0.75, type=float, help="Confidence threshold")
+def triage(traces_path: str, output: str | None, title: str, min_confidence: float) -> None:
+    """Score traces and generate a Trace Triage Report.
+
+    Reads JSONL traces, runs governance gates, classifies each trace
+    by deployment reliability and training eligibility, and produces
+    a markdown report.
+    """
+    from detrix.triage.report import run_triage
+
+    config = {"min_confidence": min_confidence}
+    out_path = Path(output) if output else None
+
+    report = run_triage(
+        traces_path=Path(traces_path),
+        output_path=out_path,
+        config=config,
+        title=title,
+    )
+
+    if out_path:
+        click.echo(f"Report written to {out_path}")
+    else:
+        click.echo(report)
+
+
 def main() -> None:
     cli()
 

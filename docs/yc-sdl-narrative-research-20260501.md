@@ -202,3 +202,140 @@ Pre-SDL pharma automation uses simulation layers to validate instrument commands
 - OSTI: DOE SDL Workshop — https://www.osti.gov/biblio/2481197
 - Built In: AI Agents in regulated industries — https://builtin.com/artificial-intelligence/ai-agent-trusted-regulated-industries
 - Deterministic vs LLM evaluators study — https://dev.to/anshd_12/deterministic-vs-llm-evaluators-a-2026-technical-trade-off-study-11h
+
+---
+
+## 2026 Updates (Appended 2026-05-01)
+
+### A-Lab Nature Correction — January 19, 2026
+
+Nature issued a formal Author Correction (doi: s41586-025-09992-y). Key changes:
+- "Novelty" language softened: materials described as new to the prediction platform, not new to science
+- XRD re-analysis: 36 of 40 confirmed; 4 downgraded to "inconclusive from XRD alone"
+- Ceder's defense (LinkedIn, Dec 2023): admitted MnAgO2 and Mg3Ni3MnO8 were not novel. Described low-quality Rietveld refinements as intentional — "our objective was to show what an autonomous lab can achieve, not the best human"
+- Critics unsatisfied. Palgrave: correction "clarifies quite a few things" but doesn't address failure to predict real-world random particle arrangements. Schoop: "the advancement for humanity is very incremental"
+- C&EN (Jan 2026) headline: "corrected, but some questions remain unanswered." No retraction.
+
+**For Detrix narrative:** This is an active, unresolved 2026 controversy. The lab's own defense is "we didn't try to do good XRD analysis." Detrix's gates do exactly what they admitted they skipped.
+
+Sources:
+- Nature correction: https://www.nature.com/articles/s41586-025-09992-y
+- C&EN coverage: https://cen.acs.org/research-integrity/Nature-robot-chemist-paper-corrected/104/web/2026/01
+- Ceder LinkedIn post: https://www.linkedin.com/pulse/regarding-our-recent-a-lab-article-gerbrand-ceder-0sz6c
+
+### Chemspeed + SciY SDL Platform — February 2026
+
+Announced at SLAS2026 (Feb 9, 2026). First commercial vendor to bundle automation + governance infrastructure:
+- SciY provides "AI-ready open data backbone" with vendor-agnostic FAIR data capture, ontology-driven semantics, audit trails, and traceable data for "critical decisions"
+- Chemspeed provides "deterministic, reproducible execution"
+- **Limitation:** Hardware-coupled (requires Chemspeed equipment). Not a standalone post-hoc governance layer for arbitrary agent traces. Detrix is decoupled from hardware.
+
+Source: https://ir.bruker.com/press-releases/press-release-details/2026/Chemspeed-and-SciY-Announce-SelfDriving-Laboratory-Platform-Integrating-Automation-Analytics-and-AI-Orchestration/default.aspx
+
+### Regulatory Developments — 2026
+
+**NIST AI Agent Standards Initiative (Feb 17, 2026):**
+First U.S. government program dedicated to autonomous AI agent standards. Three pillars: industry-led standards, community-led open protocols, foundational security/identity research. April 2026 listening sessions targeted healthcare and financial services. COSAiS project developing SP 800-53 control overlays for agent deployments. SDL governance tools that align with NIST standards get a compliance narrative for regulated customers.
+
+Source: https://www.nist.gov/news-events/news/2026/02/announcing-ai-agent-standards-initiative-interoperable-and-secure
+
+**FDA/EMA Joint Guidance (Jan 2026):**
+"10 Guiding Principles of Good AI Practice in Drug Development." Key rule: "AI outputs are recommendations, not decisions." Human approval mandatory for any AI-driven action affecting product quality, safety, or efficacy. This is the regulatory forcing function for human-in-the-loop gates in pharma SDLs.
+
+**FDA CSA Guidance (2025, effective 2026):**
+Shifted validation from exhaustive documentation to risk-based critical thinking. Lowers compliance burden for SDL governance tools that demonstrate risk-based output scoring.
+
+### SDL Market Status — 2026
+
+**QPillars analysis (2026):** Vast majority of SDLs at Level 2 autonomy. "A handful reaching Level 3." No vendor offers post-hoc output governance as a standalone layer decoupled from hardware.
+
+**Periodic Labs** (Fedus + Cubuk, ex-DeepMind, $300M): "easing into autonomy by automating pieces to ensure AI's proposed syntheses make sense." Human validation of AI proposals remains mandatory. No automated output governance.
+
+**Lila Sciences**: Targeting mRNA therapeutics and catalysts. Still relies on human input to validate AI predictions as of 2026.
+
+**Automata (LINQ platform)**: $45M Series C, Jan 2026, Danaher Ventures. 5 pharma customers. Lab workflow automation, not output governance.
+
+**Zeon Systems (YC X25)**: Plain-English-to-robot-code interface. Stanford and UCSF labs. Execution layer only, no validation or governance.
+
+**Acceleration Consortium**: CAN$200M federal grant, 50 autonomous robots. Aspuru-Guzik leading. Research focus, no commercial governance product. Profiled in Nature March 2026.
+
+**Ginkgo Bioworks Cloud Lab**: 70+ instruments, targeting 100+ RACs by end of 2026. OpenAI collab achieved 40% cost reduction in cell-free protein synthesis. No public governance framework — human scientist review only.
+
+**Strateos**: Pivoted from public cloud lab to private on-premises deployments — commercial signal that remote-access SDL faces trust/validation problems at scale.
+
+### SDL Benchmarking — 2025-2026
+
+**Benchmarking self-driving labs (Digital Discovery, Oct 2025)** — Adesiji, Wang, Kuo, Brown (Boston University). First systematic benchmarking framework. Two metrics: Acceleration Factor (AF, preferred) and Enhancement Factor (EF — varies over two orders of magnitude, definitions not standardized). Key finding: EF values are not comparable across SDLs. Noise sensitivity causes "drastic increases" in required experiments in complex parameter spaces. Stopping criteria at 10-20 experiments per dimension.
+
+Source: https://pubs.rsc.org/en/content/articlehtml/2026/dd/d5dd00337g
+
+### Additional 2026 Sources
+- Nature: Inside the SDL revolution (Mar 2026) — https://www.nature.com/articles/d41586-026-00974-2
+- Nature: Will robot labs replace biologists? (2026) — https://www.nature.com/articles/d41586-026-00453-8
+- ChemRxiv: A foundational representation for an orchestrated lab (Jan 2026) — https://chemrxiv.org/doi/full/10.26434/chemrxiv-2026-v425m
+- Zeon Systems YC profile — https://www.ycombinator.com/companies/zeon-systems
+
+---
+
+## SDL Governance — Peer-Reviewed Papers (Appended 2026-05-01)
+
+### Key finding: no governance product exists in the literature
+
+After exhaustive search, no commercial product or open-source project provides post-hoc output scoring, governed self-correction loops, or audit-trail-backed validation for SDL agent outputs. The peer-reviewed literature converges on naming the problem without solving it.
+
+### Papers
+
+**1. Benchmarking self-driving labs**
+Adesiji, Wang, Kuo, Brown — Digital Discovery 5:14–27, 2026. DOI: 10.1039/D5DD00337G. Boston University.
+First systematic SDL benchmarking framework. Defines Acceleration Factor (AF, median = 6) and Enhancement Factor (EF, peaks at 10-20 experiments/dimension). Key finding: EF values are not comparable across SDLs due to conflicting definitions. Reproducibility flagged as "a key challenge" — stochastic active learning campaigns produce different AF/EF values even in the same lab. Documents the need for governance without providing it.
+Source: https://pubs.rsc.org/en/content/articlehtml/2026/dd/d5dd00337g
+
+**2. Reproducibility in automated chemistry laboratories using computer science abstractions**
+Canty, Abolhasani — Nature Synthesis 3:1327–1339, 2024. DOI: 10.1038/s44160-024-00649-8.
+Translates CS abstractions (scenario-based programming, abstract data types, design patterns) into automated chemistry workflows to enforce reproducibility. Core argument: improper abstraction creates technical debt that breaks reproducibility. Closest peer-reviewed analog to a "governance layer for SDL workflows" — but targets workflow representation, not post-hoc output evaluation.
+Source: https://www.semanticscholar.org/paper/Reproducibility-in-automated-chemistry-laboratories-Canty-Abolhasani/d2091472f7e6a5f56d81bb07d4f1a12bcda23abd
+
+**3. A foundational representation for an orchestrated lab**
+Gottstein, Blanc, Feng, Sutherland, García Carrillo — ChemRxiv preprint, Jan 16 2026. DOI: 10.26434/chemrxiv-2026-v425m. University of Toronto / Acceleration Consortium.
+Proposes four nested constructs (primitives, unit operations, state-preserving flows, workflows) enabling "Lab as Code" — versioned, redeployable experimental specs analogous to Infrastructure as Code. Supports validation, safer parallelism, and inter-lab interoperability. No audit trail or post-hoc scoring mechanism. Not peer-reviewed yet. Structural analog to Detrix's GovernedTrajectory schema.
+Source: https://www.cambridge.org/engage/chemrxiv/article-details/6966b95bff1c4bced4170241
+
+**4. Toward self-driving laboratory 2.0 for chemistry and materials discovery**
+Lee, Yoo, Jang, Park, Park, Han — Materials Horizons, advance article Mar 4 2026. DOI: 10.1039/D5MH01984B. KIST / Korea University.
+Defines SDL 2.0 along six axes: interoperable, collaborative, generalizable, orchestrated, safe, creative. Documents that current systems "are unable to manage safety incidents without human oversight" and hazard detection is "typically limited to threshold-based alarms." Recommends version-controlled provenance-tracked digital recipes, XDL for protocol standardization, ChemTorrent for decentralized verification, graduated autonomy with experimental checkpoints. Names the right components but frames them as 2-5 year research goals, not deployable infrastructure.
+Source: https://pubs.rsc.org/en/content/articlehtml/2026/mh/d5mh01984b
+
+**5. Science acceleration and accessibility with self-driving labs**
+Canty, Bennett, Brown, Buonassisi, Kalinin, Kitchin, Maruyama, Moore, Schrier, Seifrid, Sun, Vegge, Abolhasani — Nature Communications, Apr 24 2025. DOI: 10.1038/s41467-025-59231-1. 13-author multi-institution perspective.
+States directly: "the current suite of tests and the integration of these controls into SDL workflows is lacking." Recommends SDL reports include calibrations, standards, and benchmarking data. Identifies trust as the primary adoption barrier. Names API opacity, fragmented ecosystems, and missing interoperability standards (SiLA 2, BlueSky) as structural blockers.
+Source: https://pmc.ncbi.nlm.nih.gov/articles/PMC12022019/
+
+**6. Steering towards safe self-driving laboratories**
+Leong, Griesbach, Aspuru-Guzik et al. — Nature Reviews Chemistry, Aug 2025.
+The field's main safety/governance position paper. Key quote: "AI technology is simply not yet sufficiently trustworthy to leave safety and security under its charge." Calls for human approval gates on all experimental plans and executable code. No system described that implements this.
+Source: https://www.nature.com/articles/s41570-025-00747-x
+
+**7. Autonomous self-driving laboratories: technology and policy review**
+Tobias, Wahab — Royal Society Open Science 12(7):250646, July 2025. DOI: 10.1098/rsos.250646.
+Most policy-oriented SDL review. Key quote: "failure to institute sensible, widespread policies and procedures risks obstruction of the entire SDL field in reaction to even one high-profile safety failure." Contains no discussion of audit trails, data provenance, or post-hoc output verification. Recommends human kill-switch, visual experiment summaries, strict code compartmentalization.
+Source: https://royalsocietypublishing.org/rsos/article/12/7/250646/235354/
+
+### Chemspeed / SciY — Detailed Assessment
+
+SciY's "AI-ready open data backbone" (ZONTAL platform, Bruker division) claims FAIR data capture, ontology-driven semantics, 21 CFR Part 11 alignment, API-first architecture. Concrete governance claims are thin: "traceable, quantitative data required in critical decisions" is the strongest specific statement. Audit trail mechanics, provenance chain, and validation protocols not described in any public document. No peer-reviewed publications support the governance claims.
+
+**Assessment:** Closest commercial analog to what Detrix does — but targets data management, not post-hoc output scoring or governed self-correction. Positioned at data infrastructure, not agent reliability.
+
+Sources:
+- Announcement: https://www.pharmiweb.com/press-release/2026-02-09/chemspeed-and-sciy-announce-self-driving-laboratory-platform-integrating-automation-analytics-and-a
+- SciY product page: https://www.sciy.com/en/solutions/data-management/data-platform.html
+
+### Related Standards and Protocols
+
+**XDL (eXtensible Document Language):** Represents chemistry protocols as fully digital data objects. Structural analog to GovernedTrajectory schema. Solves the representation problem; does not solve the evaluation problem.
+
+**ChemTorrent:** Decentralized protocol verification — labs execute and verify protocols before redistribution. Analogous to Detrix's holdout gate pattern (no promotion without independent verification) but for protocol distribution, not model training.
+
+**SiLA 2 / BlueSky:** Instrument interoperability standards. Named in multiple papers as missing infrastructure. Not governance-specific.
+
+**SAE Autonomy Levels → SDL Levels:** The field has directly adopted the SAE 0-5 framework. In regulated environments, SDLs will operate at Level 3-4 (human approval gates at critical decisions) for the foreseeable future. Governance infrastructure is the mechanism that defines what "human approval gate" means in practice.

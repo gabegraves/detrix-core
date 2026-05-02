@@ -12,11 +12,15 @@ Short version:
 
 > Codex, Claude, Hermes, pi, or internal agents make things happen. Detrix decides what survived, what failed, what may be tried next, and what is safe to learn from.
 
+After evaluating PydanticAI, add it to the same category as pi, LangGraph, Codex, and Claude: useful runtime/eval infrastructure, not the Detrix moat.
+
 ## What Is Easy To Copy
 
 Competitors can copy these quickly:
 
 - calling Claude/Codex/Qwen as a judge
+- typed Pydantic/PydanticAI structured outputs
+- PydanticAI tool approval, graph, eval, or observability scaffolding
 - deterministic scripts around traces
 - a basic trace store
 - an agent retry loop
@@ -76,6 +80,28 @@ Common in-house failure modes:
 
 Detrix must make these failure modes visible and structurally hard to ship.
 
+PydanticAI plus Codex or Claude can get a strong team most of the generic way there:
+
+- typed agent I/O
+- structured outputs
+- tool calls and approvals
+- eval datasets
+- custom evaluators
+- trace/spans through observability tooling
+- coding-agent assistance to write validators quickly
+
+That is not enough for Detrix's target customer unless the team also owns and maintains the domain decision boundary. Detrix must therefore compete on prebuilt and compounding admission assets: domain gates, evidence provenance, replay surfaces, false-accept calibration, failure taxonomies, policy-approved next actions, and governed training/export eligibility.
+
+The decisive demo pattern is:
+
+1. PydanticAI or a coding agent produces valid structured output.
+2. Detrix rejects or abstains because domain evidence is missing, provisional, support-only, non-replayable, or unsafe to promote.
+3. Detrix emits a governed next action or a training route label.
+4. A local Qwen 3.6-class model proposes the next step from that packet.
+5. Detrix admits or rejects the proposed transition using the same gates and replay policy.
+
+If that loop is not visible, the product looks like consulting plus validators.
+
 ## Relationship To Hermes-Style Agents
 
 Hermes-like systems are autonomous actors. Detrix is the trust and learning layer around autonomous actors.
@@ -129,6 +155,30 @@ Say:
 
 > We determine which traces are safe to learn from, which failures are safe to retry, and which outcomes require more evidence. Then we train only on governed examples that survived domain-specific gates.
 
+Expanded rule after the PydanticAI comparison:
+
+> PydanticAI can make an agent typed. Detrix makes the agent's learning admissible.
+
+Do not say Detrix can do something a user with PydanticAI and Codex cannot do at the framework level. Say Detrix gives them the validated domain gates, replay corpus, provenance rules, promotion packets, and training eligibility labels they would otherwise have to invent, calibrate, and maintain themselves.
+
+## Local Qwen 3.6 Proof Requirement
+
+The next product proof should show Detrix working around a local Qwen 3.6-class agent or challenger.
+
+Required proof shape:
+
+1. Qwen proposes a structured next action, memory update, skill change, policy change, evidence admission, or training/export route.
+2. Detrix evaluates the proposal against a deterministic evidence snapshot and domain policy.
+3. The result is an admission packet: admitted, rejected, REQUEST_MORE_DATA, eval-only, DPO-negative, SFT-positive, excluded, or hard stop.
+4. Replay verifies that admitted updates improve or preserve the validated decision boundary.
+
+Honesty boundary:
+
+- Qwen is not the judge and not the moat.
+- One accepted Qwen output is not a model-quality claim.
+- No self-improvement claim is valid without before/after held-out replay.
+- If the local Qwen runtime or training path is blocked, report the blocker and use replay artifacts rather than implying a live loop.
+
 ## YC-Safe Moat Claim
 
 > Detrix is the reliability layer for high-stakes agents. Each deployment compounds a domain pack: gates, evals, failure taxonomies, provenance rules, action policies, calibration data, and governed training traces. Claude or Codex can inspect one trace. Detrix builds the reusable decision boundary that says what survived, what failed, what to try next, and what is safe to learn from.
@@ -146,3 +196,75 @@ A future demo should prove the moat with before/after evidence:
 7. Only gate-passed traces become training/export eligible.
 
 This is the step-change from trace logging to governed self-correction.
+
+## Transition-Admission Memory - Hermes Thread Update (2026-04-29)
+
+A Reddit discussion about Hermes-style self-improving agents sharpened the Detrix positioning.
+The core question was whether a runtime built from memory, skills, and heuristics can prevent
+long-term behavioral drift without a formal state-transition system:
+
+```text
+S = agent state (memory + skills + context)
+E = new interaction / tool result
+δ(S, E) -> S'
+```
+
+Hermes-style systems emphasize plaintext state, inspectability, and post-hoc skill refinement.
+That is valuable, but it is mostly observability plus correction. Detrix should be positioned
+one layer stronger: transition-level admission.
+
+Detrix's durable claim should be:
+
+> Agents may propose state transitions, but Detrix decides whether those transitions are
+> admissible under explicit, domain-specific policy.
+
+This means Detrix is not just trace logging, not just a judge, and not just a retry loop.
+It is the harness that constrains which state changes are allowed to become trusted state.
+
+### Required State-Transition Shape
+
+Detrix should model durable learning updates as proposals:
+
+```text
+prior trusted state S
++ event / trace / tool result E
+-> proposed transition P
+-> policy/domain validators V
+-> admitted trusted state S' OR rejected transition + governed next action
+```
+
+Raw agent output should not directly mutate trusted memory, skills, domain evidence,
+training sets, or promotion state. It should emit a proposal that Detrix admits, rejects,
+or routes to a bounded next action.
+
+### Practical Invariants
+
+Detrix cannot honestly promise global formal guarantees for open-ended agents. It can and
+should promise enforceable local invariants:
+
+- no export without an admission packet;
+- no benchmark claim without a domain evidence tuple;
+- no skill activation without fixture/regression replay;
+- no memory promotion without source/provenance and scope;
+- no policy update without replay against prior accepted/rejected cases;
+- no LLM/judge score overriding deterministic domain gates;
+- no support-only/proxy/provisional evidence becoming benchmark-grade without a promotion packet.
+
+### Product Positioning
+
+Hermes makes agent learning visible. Detrix should make agent learning admissible.
+
+Short competitive framing:
+
+> Agent runtimes decide what to try. Detrix decides what survived, what may safely change
+> trusted state, what must be replayed, and what is safe to learn from.
+
+### AgentXRD Concrete Example
+
+For AgentXRD, the transition from `pattern_origin=unknown` to
+`pattern_origin=experimental` must not happen because a folder is named CNRS, EMPA, HKUST,
+or USC. It requires a source contract, source evidence path, reviewed labels, wavelength /
+profile provenance, sample allowlist, matched CIF provenance, and replayable policy version.
+
+Blocked transitions should become `GovernedNextAction` rows, not dead ends. This preserves
+self-correction while preventing unsafe drift.

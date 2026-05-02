@@ -54,6 +54,7 @@ builds the gate factory, not the gates.
 - Open-source projects (MetaClaw, TensorZero, autoresearch, MLAgentBench) are component sources under MIT/Apache-2.0, NOT competitors. Pi is the runtime foundation.
 - AgentXRD (materials science) is the Phase 1 domain pack. Gates extract from AgentXRD_v2 into detrix-core.
 - **Training strategy:** SFT + LoRA first (v1), DPO second (v2), GRPO/RL only if needed (v3). Don't start with RL.
+- **Small/local model training rule:** Local Qwen/Hermes-class models should be treated as narrow task specialists, not scaled-down frontier generalists. Before any RLVR/GRPO claim, build cold-start SFT/LoRA data that matches the exact later reward task; track doom loops, recursive retries, unchanged evidence deltas, and repeated tool calls as first-class governed failures. Use tools and deterministic evidence snapshots to compensate for low model knowledge; do not solve long context by dumping raw traces into the prompt.
 - **Build order:** Phase 0 (pi extension + bridge) → Phase 1-4 (improvement loop) → Phase 5 (gate factory). Preserve AgentXRD_v2's post-hoc gate pattern during extraction.
 - **Competitive landscape (2026-04-23):** 1,595 pi packages, zero governance extensions — gap is wide open. 6+ projects attack parts of the improvement loop. None combine all four differentiators. Full analysis: `docs/autoresearch-landscape-eval-20260423.md`
 - **Provider absorption risk is LOW** if positioned on domain physics. OpenAI RFT gets 70% of generic improvement loop but cannot validate materials physics.

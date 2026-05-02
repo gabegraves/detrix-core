@@ -179,6 +179,45 @@ Honesty boundary:
 - No self-improvement claim is valid without before/after held-out replay.
 - If the local Qwen runtime or training path is blocked, report the blocker and use replay artifacts rather than implying a live loop.
 
+## Small-Model Training Memory - Labonne / Liquid AI Talk (2026-05-02)
+
+Source processed through the ParabolaHunter YouTube path: AI Engineer video
+`fLUtUkqYHnQ`, "Everything I Learned Training Frontier Small Models - Maxime
+Labonne, Liquid AI" (uploaded 2026-04-29). Repo-local extraction used
+`backend.collectors.youtube_collector.fetch_transcript` plus local Qwen-style
+structured analysis.
+
+Detrix takeaway:
+
+> Small/local models should be narrow verifiable workers, not mini-frontier
+> generalists. Detrix's product value is the environment, verifier, and
+> admission boundary around those workers.
+
+Apply this to Detrix:
+
+- Treat local Qwen/Hermes-class models as task-specialized actors for trace
+  classification, blocker routing, next-action proposal, schema repair, and
+  evidence-delta explanation.
+- Do not start with RLVR. First build cold-start SFT/LoRA examples that match
+  the exact later reward task: `trace -> blocker_class`, `trace -> allowed_next_action`,
+  `evidence_delta -> promote/reject/trainable`, and `proposal -> admitted/rejected`.
+- Use DPO for chosen/rejected trajectory pairs once deterministic gates can say
+  which rollout is better. Use GRPO/RLVR only after enough verifiable task
+  environments and held-out replay checks exist.
+- Track doom loops as governed failures: repeated same action, recursive retry,
+  repeated tool call, same blocker with no evidence delta, or long reasoning
+  that never reaches a valid final answer.
+- Compensate for low model knowledge with tools, retrieval, and deterministic
+  evidence snapshots. Do not ask the local model to memorize crystallography,
+  trading rules, or customer policy.
+- Represent long traces as structured state snapshots and evidence ledgers
+  instead of raw context dumps.
+
+Product implication:
+
+> Detrix is a narrow verifiable environment factory for local small models.
+> The training loop is useful only after Detrix has admitted the examples.
+
 ## YC-Safe Moat Claim
 
 > Detrix is the reliability layer for high-stakes agents. Each deployment compounds a domain pack: gates, evals, failure taxonomies, provenance rules, action policies, calibration data, and governed training traces. Claude or Codex can inspect one trace. Detrix builds the reusable decision boundary that says what survived, what failed, what to try next, and what is safe to learn from.

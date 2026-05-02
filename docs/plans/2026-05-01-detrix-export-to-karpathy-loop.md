@@ -10,6 +10,8 @@
 
 **Key constraint:** Post-hoc evaluation only (Bitter Lesson). Gates never constrain agent action space. Support-query versioning: flush trace buffer on ANY gate/evaluator version change.
 
+**Small-model constraint:** Local Qwen/Hermes-class models are narrow workers, not scaled-down frontier generalists. The first trainable product is not "RL for the whole agent"; it is cold-start SFT/LoRA on exact Detrix decision tasks, followed by DPO on gate-scored chosen/rejected pairs, then GRPO/RLVR only after verifiable task environments and held-out replay exist. Doom loops, recursive retries, repeated tool calls, and unchanged evidence deltas are governed failure labels.
+
 **Core insight:** Gates in AgentXRD and ParabolaHunter were all agent-written (Claude Code sessions analyzing failures). The product is the PROCESS of creating gates from failures — an agent reads traces, proposes deterministic checks, human approves. The "gate factory" is already happening informally.
 
 ---
@@ -365,6 +367,14 @@ Karpathy's autoresearch generalized: diagnose → propose skill → validate →
 ### Task 13: Governed Training Trigger
 
 When N governed traces accumulate, trigger SFT via existing SFTTrainer. Export only traces where all tiers agree. Version-stamp.
+
+Training order:
+
+1. SFT/LoRA on admitted positive decision traces that match the later reward task.
+2. DPO on gate-scored chosen/rejected pairs, including rejected doom-loop and no-evidence-delta traces.
+3. GRPO/RLVR only for narrow verifiable environments with deterministic rewards and held-out replay.
+
+Do not trigger RL because raw trace volume increased. Trigger it only when the reward task is narrow, replayable, and already represented in cold-start SFT data.
 
 - [ ] Steps: test → implement → test → commit
 

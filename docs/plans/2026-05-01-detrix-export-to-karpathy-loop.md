@@ -12,6 +12,8 @@
 
 **Small-model constraint:** Local Qwen/Hermes-class models are narrow workers, not scaled-down frontier generalists. The first trainable product is not "RL for the whole agent"; it is cold-start SFT/LoRA on exact Detrix decision tasks, followed by DPO on gate-scored chosen/rejected pairs, then GRPO/RLVR only after verifiable task environments and held-out replay exist. Doom loops, recursive retries, repeated tool calls, and unchanged evidence deltas are governed failure labels.
 
+**AgentXRD local harness target:** Demonstrate a deterministic self-improving harness around local Qwen. Qwen proposes AgentXRD state transitions; AgentXRD gates plus Detrix admission create the RLVR environment and labels. The demo artifact should show `evidence_packet -> qwen_proposal -> deterministic_gate_verdicts -> reward_vector -> training_route -> heldout_replay_promotion_decision`. Do not claim autonomous science or model improvement until replay proves the challenger improved or preserved the validated decision boundary.
+
 **Core insight:** Gates in AgentXRD and ParabolaHunter were all agent-written (Claude Code sessions analyzing failures). The product is the PROCESS of creating gates from failures — an agent reads traces, proposes deterministic checks, human approves. The "gate factory" is already happening informally.
 
 ---
@@ -367,6 +369,13 @@ Karpathy's autoresearch generalized: diagnose → propose skill → validate →
 ### Task 13: Governed Training Trigger
 
 When N governed traces accumulate, trigger SFT via existing SFTTrainer. Export only traces where all tiers agree. Version-stamp.
+
+For AgentXRD, the first local Qwen training trigger should use deterministic transition-level examples, not whole-run rewards:
+
+- positives: proposals that moved a trace to the correct blocker class, allowed next action, evidence admission, or training route under AgentXRD gates
+- negatives: doom loops, unsafe promotions, support-only promotion attempts, no-evidence-delta retries, wrong blocker classes, and REQUEST_MORE_DATA cases misrouted as ACCEPT
+- eval-only: ambiguous scientific mismatch, missing provenance, missing calibration, or support-only rescue evidence
+- excluded: contaminated truth leakage, unapproved data source, unversioned gate change, or non-replayable trace
 
 Training order:
 

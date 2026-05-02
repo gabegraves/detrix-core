@@ -172,6 +172,14 @@ Required proof shape:
 3. The result is an admission packet: admitted, rejected, REQUEST_MORE_DATA, eval-only, DPO-negative, SFT-positive, excluded, or hard stop.
 4. Replay verifies that admitted updates improve or preserve the validated decision boundary.
 
+AgentXRD demo shape:
+
+- Qwen is the local proposer around the AgentXRD trace, not the judge.
+- AgentXRD gates plus Detrix admission are the RLVR environment: they turn a trace and proposal into deterministic rewards, blocker labels, evidence-delta measurements, training eligibility labels, and replay promotion decisions.
+- The reward target should be a narrow verifiable decision task, for example `trace -> blocker_class`, `trace -> allowed_next_action`, `proposal -> admitted/rejected`, or `evidence_delta -> promote/reject/trainable`.
+- "Self-improving" means the harness accumulates gate-scored positives, negatives, and eval-only traces; runs SFT/LoRA or DPO on admitted examples; and promotes a challenger only after held-out replay proves no precision regression.
+- Do not describe the entire XRD workflow as an RL environment at first. Start with row-level or transition-level AgentXRD tasks where the deterministic gates already produce falsifiable labels.
+
 Honesty boundary:
 
 - Qwen is not the judge and not the moat.

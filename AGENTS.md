@@ -61,6 +61,7 @@ builds the gate factory, not the gates.
 - **The training loop is commodity.** The moat is domain-validated training SIGNAL from governance scoring, not the loop mechanics.
 - **Hardware advantage:** Local GPUs (2x Blackwell + 3x 3090 + 512GB RAM) enable zero-marginal-cost improvement loops, on-prem demos for regulated customers, and pre-built domain benchmarks.
 - **Local model proof requirement:** Show Detrix working with a local Qwen 3.6-class model or challenger. Qwen proposes a next action or state transition; Detrix admits, rejects, routes to REQUEST_MORE_DATA, or labels it for SFT/DPO/eval/exclusion using deterministic domain evidence. Do not claim Qwen reliability or self-improvement unless before/after held-out replay proves improvement without precision regression.
+- **AgentXRD local RLVR harness demo:** The demo should be a deterministic self-improving harness around local Qwen, not Qwen as the evaluator. Qwen proposes an AgentXRD transition (`blocker_class`, `next_action`, `evidence_admission`, `threshold_change`, or `training_route`). AgentXRD gates plus Detrix admission create the RLVR environment: deterministic verdicts, dense reward components, training eligibility labels, evidence-delta ledger, and a held-out replay promotion decision. The claim is "Detrix creates the verifiable reward environment and fail-closed learning boundary"; model-improvement claims require replay proof.
 
 ## AgentXRD_v2 Application
 
@@ -82,6 +83,7 @@ AgentXRD_v2 is the proving ground for Detrix — its gate architecture is alread
 - MLAgentBench integration as secondary RLVR training ground (13 ML tasks with deterministic `get_score()`)
 - MetaClaw SkillEvolver: gradient-free skill evolution scored by existing gates (reference: AutoResearchClaw's 5-layer integration, +18.3% robustness)
 - Production-reliability proof loop: AgentXRD run -> post-hoc physics verdicts -> persisted trace/evidence -> accepted/rejected training examples -> challenger replay -> promotion only if domain gates improve without precision regression
+- Qwen harness artifact flow: evidence packet -> Qwen transition proposal -> deterministic AgentXRD/Detrix gate evaluation -> reward vector + training label -> replay comparison -> admit/reject/promote
 
 **What NOT to do:**
 - Don't refactor gates into action-space constraints during extraction — the post-hoc pattern is correct

@@ -4,38 +4,39 @@ Date: 2026-05-03
 
 ## One-Liner
 
-Detrix verifies agent outputs before they become training data.
+Detrix makes high-stakes AI agents reliable enough for production.
 
 Expanded:
 
-> Detrix helps technical teams deploy AI agents safely by checking whether each
-> output is correct, unsupported, unsafe, or useful for training.
+> Detrix is a reliability harness for technical AI agents. It verifies each
+> output, decides whether it can be accepted, retried, blocked, or trained on,
+> and prevents bad traces from poisoning future models.
 
 ## 90-Second Pitch
 
-Detrix verifies agent outputs before they become training data.
+Detrix makes high-stakes AI agents reliable enough for production.
 
 Companies want to use AI agents for technical workflows, but agents make
-plausible mistakes. The bigger problem is that those bad traces are now being
-reused for fine-tuning, so one wrong output can poison the next model.
+plausible mistakes. That is dangerous twice: first when a bad output reaches
+production, and again when that trace gets reused for fine-tuning.
 
-Detrix wraps an agent workflow with a domain pack: gates, failure labels, replay
-tests, and training rules. It decides whether each trace should be accepted,
-retried, blocked, used as an eval, or exported for fine-tuning.
+Detrix wraps an agent workflow with a reliability harness: domain gates, failure
+labels, replay tests, and training rules. It decides whether each output should
+be accepted, retried, blocked, used as an eval, or exported for fine-tuning.
 
 We start with materials characterization through AgentXRD. A local model proposes
 the next XRD action; Detrix checks the scientific evidence and only lets properly
-routed traces become training data.
+routed outputs become production results or training data.
 
-LangGraph runs the agent. Unsloth trains the model. Detrix decides what the
-model is allowed to learn from.
+LangGraph runs the agent. Unsloth trains the model. Detrix is the reliability
+harness that decides what the agent is allowed to do and learn from.
 
 ## YC Application Answers
 
 ### What Are You Building?
 
-Detrix is a verification layer for high-stakes AI agents. It wraps one agent
-workflow, captures its traces, checks domain evidence, and decides whether each
+Detrix is a reliability harness for high-stakes AI agents. It wraps one agent
+workflow, captures traces, checks domain evidence, and decides whether each
 output should be accepted, retried, blocked, used as an eval, or exported as
 training data.
 
@@ -51,8 +52,8 @@ traces are dangerous. A failed trace does not automatically mean "negative
 example": it might mean missing evidence, bad provenance, tool failure,
 support-only evidence, or "ask for more data."
 
-Detrix turns raw traces into typed learning signal instead of letting companies
-train on garbage.
+Detrix turns agent outputs into governed decisions and raw traces into typed
+learning signal instead of letting companies deploy or train on garbage.
 
 ### Why Now?
 
@@ -68,7 +69,7 @@ a structurally valid output can still be scientifically or operationally wrong.
 Pydantic validates structure. LangGraph runs workflows. Unsloth trains local
 models.
 
-Detrix decides what is safe to learn from.
+Detrix decides what is safe to accept, retry, promote, or learn from.
 
 For one trace, Detrix can output:
 
@@ -82,12 +83,12 @@ That routing is the product.
 
 ### What Is The First Product?
 
-A Detrix domain pack: the gates, failure labels, replay set, and training rules
-for one workflow.
+A Detrix reliability harness for one workflow: the gates, failure labels, replay
+set, and training rules that make one agent workflow production-safe.
 
-Install it around an agent, point it at traces, and get governed outputs:
-accepted, rejected, retry, request more data, eval-only, training-positive,
-training-negative, or excluded.
+Install it around an agent, point it at outputs and traces, and get governed
+decisions: accepted, rejected, retry, request more data, eval-only,
+training-positive, training-negative, or excluded.
 
 For AgentXRD, the first demo is:
 
@@ -101,7 +102,8 @@ evidence packet
 
 The honest v0 demo is:
 
-> Detrix prevented unsafe scientific traces from becoming training data.
+> Detrix prevented unsafe scientific outputs from becoming production results or
+> training data.
 
 The stronger v1 demo is:
 
@@ -132,7 +134,8 @@ Near-term SAM assumption for YC discussion:
 > average contract = $100M near-term SAM.
 
 The broader market expands to every technical team that needs agent outputs,
-traces, skills, prompts, or model checkpoints verified before promotion.
+traces, skills, prompts, actions, or model checkpoints verified before
+production or promotion.
 
 ### Traction
 
@@ -140,8 +143,8 @@ Current honest version:
 
 > We have a working internal AgentXRD governance demo and are using it to prove
 > fail-closed trace admission. The demo shows Detrix blocking unsafe scientific
-> traces from becoming accepted results or training data, while preserving wrong
-> traces as negatives, replay fixtures, and next-action examples.
+> outputs from becoming accepted results or training data, while preserving
+> wrong traces as negatives, replay fixtures, and next-action examples.
 
 Replace with stronger copy as soon as available:
 
@@ -177,13 +180,14 @@ Use these in the YC app or interview:
 > Bad traces are dangerous twice: first when they reach production, and again
 > when they become fine-tuning data.
 
-> LangGraph runs the agent. Unsloth trains the model. Detrix decides what the
-> model is allowed to learn from.
+> LangGraph runs the agent. Unsloth trains the model. Detrix is the reliability
+> harness that decides what the agent is allowed to do and learn from.
 
 > The product is the routing: positive, negative, eval-only, request-more-data,
 > or excluded.
 
-> Detrix prevented unsafe scientific traces from becoming training data.
+> Detrix prevented unsafe scientific outputs from becoming production results or
+> training data.
 
 ## Lines To Avoid
 

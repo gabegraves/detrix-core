@@ -1,246 +1,199 @@
-# Detrix YC Pitch: Reliability And Admission
+# Detrix YC Pitch: Application Copy
 
 Date: 2026-05-03
 
-## Position
+## One-Liner
 
-I mostly concur with the reviewed pitch, with one correction: do not lead with
-"verified learning environments." That is a valuable artifact Detrix can emit,
-but it is not the product identity. The buyer-facing product is the reliability
-and admission harness for production agents.
+Detrix verifies agent outputs before they become training data.
 
-Best one-liner:
+Expanded:
 
-> Detrix is the reliability and self-improvement harness for production agents:
-> it evaluates traces, gates outputs against domain evidence, and only lets
-> admissible results become actions, memory, training data, or promoted versions.
+> Detrix helps technical teams deploy AI agents safely by checking whether each
+> output is correct, unsupported, unsafe, or useful for training.
 
-Customer version:
+## 90-Second Pitch
 
-> Detrix helps science and engineering teams move agents from demos to
-> production by verifying every output, deciding what can be accepted, retried,
-> promoted, or trained on, and exporting only governed learning signal.
+Detrix verifies agent outputs before they become training data.
 
-## Pitch
+Companies want to use AI agents for technical workflows, but agents make
+plausible mistakes. The bigger problem is that those bad traces are now being
+reused for fine-tuning, so one wrong output can poison the next model.
 
-AI agents fail in production because outputs that look plausible are allowed to
-change durable state without enough evidence. A schema can say a response is
-well formed. It cannot decide whether an XRD fit is scientifically admissible,
-whether evidence is only support-level, whether provenance is clean, whether a
-Telegram message is readable enough to send, or whether a failed trace is safe
-to train on.
+Detrix wraps an agent workflow with a domain pack: gates, failure labels, replay
+tests, and training rules. It decides whether each trace should be accepted,
+retried, blocked, used as an eval, or exported for fine-tuning.
 
-Detrix is the admission layer for reliable agents. The agent proposes a state
-transition. Detrix captures the trace and evidence, runs deterministic and
-domain-specific gates, emits an admission decision, routes the next bounded
-action, saves replay fixtures, and exports training signal only through the
-route that is safe for that trace.
+We start with materials characterization through AgentXRD. A local model proposes
+the next XRD action; Detrix checks the scientific evidence and only lets properly
+routed traces become training data.
 
-"Safe to learn from" does not mean "only learn from correct outputs." Wrong
-traces are often the highest-value signal. Detrix prevents them from becoming
-false positives, accepted evidence, or promoted behavior, then routes them into
-the right improvement channel: DPO-negative, RL penalty, abstention example,
-failure-class replay, regression test, or governed next-action case.
+LangGraph runs the agent. Unsloth trains the model. Detrix decides what the
+model is allowed to learn from.
 
-The product is not another agent runtime, workflow tool, eval dashboard, or RL
-trainer. It is the harness plus gates plus trace-evaluation loop that decides
-which agent outputs can become production state.
+## YC Application Answers
 
-## Product Surface
+### What Are You Building?
 
-A Detrix domain pack contains:
+Detrix is a verification layer for high-stakes AI agents. It wraps one agent
+workflow, captures its traces, checks domain evidence, and decides whether each
+output should be accepted, retried, blocked, used as an eval, or exported as
+training data.
 
-- evidence schemas for the artifacts that matter
-- deterministic gates for domain, provenance, policy, and safety checks
-- capture schema for the full branching trajectory: assumptions, configs,
-  tools, outputs, dead ends, pivots, evidence, and gate verdicts
-- failure taxonomy and reason codes
-- admission decisions such as accept, reject, request more data, rewrite,
-  eval-only, SFT-positive, DPO-negative, RL reward, or excluded
-- training-route policy that separates positive learning, negative learning,
-  replay-only evidence, and hard-excluded contaminated traces
-- governed next actions with budgets and stop conditions
-- replay cases for accepted and rejected historical examples
-- promotion rules for prompts, skills, policies, gates, models, and checkpoints
-- training export for Unsloth, ART, Prime/Verifiers, TRL, or grader-based RFT
+We start with AgentXRD, an X-ray diffraction workflow for materials
+characterization. A local model proposes the next action or classification;
+Detrix checks the proposal against deterministic scientific gates and only
+allows correctly routed traces into training or promotion.
 
-The deeper asset can become an RL environment. The immediate product is governed
-production reliability.
+### What Problem Are You Solving?
 
-Capture should borrow from the ARA pattern: keep the full agent-native artifact,
-not just the cleaned-up success narrative. For Detrix that means every domain
-run should preserve logic, executable context, trace graph, dead ends, pivots,
-and evidence, then add the missing reliability layer: admission verdicts,
-training route, next action, replay status, and promotion eligibility.
+Teams are starting to fine-tune and deploy agents from their own traces, but raw
+traces are dangerous. A failed trace does not automatically mean "negative
+example": it might mean missing evidence, bad provenance, tool failure,
+support-only evidence, or "ask for more data."
 
-## Demo Sequence
+Detrix turns raw traces into typed learning signal instead of letting companies
+train on garbage.
 
-### 1. OpenClaw Readability Gate
+### Why Now?
 
-Use OpenClaw/Telegram as the first legible demo because the failure is obvious:
-prompting asks for readable Telegram output, but the model still emits dense
-paragraphs with inline bullets.
+Three things happened at once: agent frameworks became good enough for real
+workflows, fine-tuning became accessible to ordinary AI teams, and companies
+started discovering that training on raw traces can make agents worse.
 
-Demo flow:
+The bottleneck is the grader. Generic graders fail in technical domains because
+a structurally valid output can still be scientifically or operationally wrong.
 
-```text
-model output
-  -> Telegram readability gate
-  -> PASS / REWRITE / BLOCK
-  -> admitted readable output
-  -> replay case
-  -> training route or promotion block
-```
+### Why Are You Different?
 
-Claim:
+Pydantic validates structure. LangGraph runs workflows. Unsloth trains local
+models.
 
-> Prompting was advisory. Detrix makes readability an admission condition before
-> a message reaches the channel.
+Detrix decides what is safe to learn from.
 
-### 2. AgentXRD Scientific Admission
+For one trace, Detrix can output:
 
-Use AgentXRD as the domain-specific proof. Qwen or another local model proposes
-a transition: blocker class, next action, evidence admission, threshold change,
-or training route. Detrix/AgentXRD gates decide whether the transition is
-scientifically admissible.
+- `SFT-positive`: do more of this
+- `DPO-negative`: prefer another action
+- `eval-only`: keep as a regression case
+- `request-more-data`: do not guess
+- `excluded`: bad provenance or contaminated label
 
-Demo flow:
+That routing is the product.
+
+### What Is The First Product?
+
+A Detrix domain pack: the gates, failure labels, replay set, and training rules
+for one workflow.
+
+Install it around an agent, point it at traces, and get governed outputs:
+accepted, rejected, retry, request more data, eval-only, training-positive,
+training-negative, or excluded.
+
+For AgentXRD, the first demo is:
 
 ```text
-evidence_packet
-  -> local_model_proposal
-  -> PXRD/provenance/support-only/wrong-accept gates
-  -> admission decision
-  -> reward vector + training label
-  -> held-out replay promotion decision
+evidence packet
+  -> local model proposal
+  -> deterministic gate verdicts
+  -> reward/training label
+  -> replay-gated promotion decision
 ```
 
-Honest v0 claim:
+The honest v0 demo is:
 
-> Detrix prevents unsafe scientific traces from becoming accepted outputs or
-> training data, and produces structured failure labels for later improvement.
+> Detrix prevented unsafe scientific traces from becoming training data.
 
-More precise version:
+The stronger v1 demo is:
 
-> Detrix prevents wrong scientific traces from becoming positives, while still
-> using them as negatives, abstention cases, replay tests, and next-action
-> examples.
+> Detrix used governed positives and negatives to improve a local model on
+> held-out replay without increasing false accepts.
 
-Do not claim the local model has self-improved until held-out replay proves
-before/after improvement without precision regression.
+### Business Model
 
-### 3. ParabolaHunter Outcome Admission
+Start with paid pilots for one governed workflow.
 
-ParabolaHunter is the later generalization test. It should only be used once the
-gates represent real economic outcome quality, such as real-priced execution,
-entry-signal consistency, position sizing, backtest/P&L outcome, and exit
-discipline.
+- Pilot: $10k-$25k for one domain pack and replay harness.
+- Production: $50k-$150k/year per governed workflow.
+- Enterprise/on-prem: $250k+/year when traces cannot leave the customer
+  environment.
 
-## Competitive Line
+Pricing is tied to governed workflows, evaluated trace volume, and local/on-prem
+deployment. The budget anchor is existing lab, characterization, and engineering
+software: Detrix sits beside those systems as the trust layer for AI agents.
 
-- LangGraph and PydanticAI help teams build agents.
-- Langfuse, Braintrust, Phoenix, and Pydantic Evals help teams observe and score
-  behavior.
-- OpenPipe ART, Prime, NeMo, TRL, and Unsloth help teams train models and
-  agents.
-- Detrix decides whether a trace, output, skill, policy, memory, evidence packet,
-  training row, or checkpoint is admissible in the first place.
+### Market
 
-Short version:
+The initial beachhead is R&D and engineering teams deploying AI agents in
+materials, chemistry, biotech, semiconductor, and technical services workflows.
 
-> Langfuse shows what happened. Braintrust scores it. OpenPipe trains on it.
-> Prime runs RL on it. Detrix decides whether it is safe to accept, retry,
-> promote, or learn from.
+Near-term SAM assumption for YC discussion:
 
-Prime-specific version:
+> 2,000 technical R&D teams with active agent or automation pilots x $50k/year
+> average contract = $100M near-term SAM.
 
-> Prime makes environments trainable. Detrix makes high-stakes agent outcomes
-> admissible.
+The broader market expands to every technical team that needs agent outputs,
+traces, skills, prompts, or model checkpoints verified before promotion.
 
-## Moat
+### Traction
 
-The moat is not gate code, Qwen, Claude, Codex, deterministic scripts, or a
-generic fine-tuning loop. Those are copyable.
+Current honest version:
 
-The moat is the accumulated validated decision boundary per domain:
+> We have a working internal AgentXRD governance demo and are using it to prove
+> fail-closed trace admission. The demo shows Detrix blocking unsafe scientific
+> traces from becoming accepted results or training data, while preserving wrong
+> traces as negatives, replay fixtures, and next-action examples.
 
-- accepted and rejected replay cases
-- calibrated false-accept thresholds
-- provenance rules
-- failure taxonomy
-- support-only boundaries
-- training eligibility history
-- evidence-delta ledgers
-- governed next-action policies
-- promotion packets and rollback criteria
+Replace with stronger copy as soon as available:
 
-This compounds with use. Each failed run becomes a sharper eval, a safer
-negative, or a better abstention example. Each clean accepted run becomes a
-positive. Each model, prompt, skill, policy, or gate update is replayed against
-the boundary before promotion.
+> We are scoping pilots with [customer/team] around [workflow].
 
-The goal is not to discard bad traces. The goal is to stop route contamination:
-a wrong accept must not become an SFT positive, a support-only trace must not
-become production truth, and an unjoinable trace must not train a model as if its
-outcome were known. Those traces still improve the system when admitted to the
-right negative, replay, or diagnostic lane.
+Or:
 
-## What Not To Pitch
+> We have an LOI to govern one technical agent workflow and prove Detrix can
+> reduce expert review while producing safer training data.
 
-Do not pitch Detrix as:
+### Why You?
 
-- an RLVR environment company
-- a better LangGraph, PydanticAI, n8n, Prime, ART, or Unsloth
-- a dashboard for traces
-- a claim that Qwen already self-improves
-- a claim that all science can be automated
+I studied materials science at Georgia Tech and did hands-on XRD and materials
+workflow work. I have also built applied ML/agent systems and high-stakes
+automation where noisy evidence and false positives matter.
 
-The right claim is narrower and stronger:
+I am not starting with generic agent evals. I am starting with a scientific
+workflow I understand deeply enough to know why schema validation is not enough.
 
-> Detrix turns verifiable fragments of high-stakes workflows into governed agent
-> reliability loops.
-
-## YC Answer
-
-**What are you building?**
-
-Detrix is a verification and admission layer for production AI agents. It turns
-domain workflows into replayable gates that decide whether an agent output can
-be accepted, retried, promoted, remembered, or used for fine-tuning. We start
-with two demos: OpenClaw for a simple reliability gate around readable Telegram
-output, and AgentXRD for scientific evidence admission in materials
-characterization.
-
-**Who needs this?**
-
-Science and engineering teams moving agents from demos to production: materials
-labs, chemical R&D teams, semiconductor characterization teams, computational
-chemistry groups, and eventually any team where false accepts are expensive and
-expert review is a bottleneck.
-
-**Why now?**
-
-Agent runtimes, observability, and training infrastructure are maturing, but
-they all depend on trustworthy admission and reward signal. Teams can capture
-traces and fine-tune models. They still need a domain-specific boundary that
-decides what is safe to learn from.
-
-**What is the wedge?**
-
-OpenClaw makes the abstraction obvious: a deterministic readability gate admits,
-rewrites, or blocks model output before it reaches Telegram. AgentXRD makes the
-moat obvious: deterministic PXRD/provenance gates prevent unsafe scientific
-outputs or contaminated traces from becoming accepted results or training rows.
-
-**Why will this become big?**
+### Why Will This Become Big?
 
 Every serious agent deployment eventually needs the same control plane: capture
 traces, evaluate evidence, route failures, improve prompts/skills/models, and
-promote only with replay proof. Models, trainers, and runtimes will commoditize.
-The durable asset is the domain admission boundary.
+promote only with replay proof.
 
-**Defensible sentence:**
+Models, trainers, and runtimes will commoditize. The durable asset is the domain
+admission boundary.
 
-> Detrix turns production agent traces into governed domain-admission
-> boundaries, so only evidence that survives deterministic gates can be
-> accepted, retried, promoted, or used for training.
+## Lines To Keep
+
+Use these in the YC app or interview:
+
+> Bad traces are dangerous twice: first when they reach production, and again
+> when they become fine-tuning data.
+
+> LangGraph runs the agent. Unsloth trains the model. Detrix decides what the
+> model is allowed to learn from.
+
+> The product is the routing: positive, negative, eval-only, request-more-data,
+> or excluded.
+
+> Detrix prevented unsafe scientific traces from becoming training data.
+
+## Lines To Avoid
+
+Do not open with:
+
+- RLVR
+- GRPO / DPO / SFT / LoRA
+- Prime / NeMo / ART / ORS landscape details
+- "we automate science"
+- "Qwen already self-improves"
+- "domain pack" before explaining the problem
+
+Technical details can come after the plain-English pitch lands.

@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from detrix.triage.gates import CostAnomalyGate, LatencyAnomalyGate, OutputFormatGate
-from detrix.triage.report import Trace, generate_report, load_traces_jsonl, score_traces
 from detrix.core.governance import Decision, GateContext
+from detrix.triage.gates import CostAnomalyGate, LatencyAnomalyGate, OutputFormatGate
+from detrix.triage.report import generate_report, load_traces_jsonl, score_traces
 
 
 def _sample_traces() -> list[dict]:

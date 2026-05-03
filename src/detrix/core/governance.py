@@ -91,6 +91,29 @@ class GovernanceGate(ABC):
         return True
 
 
+def _verdict(
+    *,
+    gate: GovernanceGate,
+    decision: Decision,
+    evidence: dict[str, Any],
+    reason_codes: list[str] | None = None,
+    recommended_actions: list[str] | None = None,
+    rejection_type: str | None = None,
+    confidence: float | None = None,
+) -> VerdictContract:
+    """Build a standard gate verdict from a GovernanceGate instance."""
+    return VerdictContract(
+        decision=decision,
+        gate_id=gate.gate_id,
+        evidence=evidence,
+        reason_codes=reason_codes or [],
+        recommended_actions=recommended_actions or [],
+        confidence=confidence,
+        evaluator_version=gate.version,
+        rejection_type=rejection_type,
+    )
+
+
 @dataclass(frozen=True)
 class EvaluatorResult:
     """Structured output from a domain evaluator."""

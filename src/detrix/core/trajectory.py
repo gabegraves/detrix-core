@@ -32,6 +32,10 @@ class GovernedTrajectory(BaseModel):
     gate_versions: dict[str, str] = Field(default_factory=dict)
     model_version: str | None = None
 
+    training_route: str | None = None
+    replay_status: str | None = None
+    promotion_eligible: bool | None = None
+
     started_at: datetime
     finished_at: datetime | None = None
 

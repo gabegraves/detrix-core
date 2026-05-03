@@ -516,6 +516,192 @@ def _line_count(path: str) -> int:
         return sum(1 for _ in file)
 
 
+@cli.group("openclaw")
+def openclaw() -> None:
+    """OpenClaw reliability harness commands."""
+
+
+@openclaw.command("digest")
+@click.argument("trace_path", type=click.Path(exists=True))
+@click.option("--db", default=".detrix/evidence.db", help="Path to evidence.db")
+@click.option("--max-length", default=2000, type=int, show_default=True)
+@click.option("--max-paragraph", default=500, type=int, show_default=True)
+@click.option("--limit", default=None, type=int)
+@click.option("--verbose", "-v", is_flag=True)
+def openclaw_digest(
+    trace_path: str,
+    db: str,
+    max_length: int,
+    max_paragraph: int,
+    limit: int | None,
+    verbose: bool,
+) -> None:
+    """Digest OpenClaw JSONL traces into governed trajectories."""
+    from detrix.openclaw.trace_digest import digest_openclaw_traces
+    from detrix.runtime.trajectory_store import TrajectoryStore
+
+    store = TrajectoryStore(db)
+    summary = digest_openclaw_traces(
+        trace_path,
+        store=store,
+        config={"max_length": max_length, "max_paragraph_chars": max_paragraph},
+        limit=limit,
+    )
+    _print_openclaw_summary(summary.decisions, summary.failure_patterns, summary.total)
+    click.echo(f"Stored trajectories: {summary.stored}")
+    click.echo(f"Skipped malformed/empty lines: {summary.skipped}")
+    if verbose:
+        for trajectory in summary.trajectories:
+            click.echo(
+                f"  {trajectory.trajectory_id}: route={trajectory.training_route} "
+                f"decision={trajectory.verdicts[0]['decision']}"
+            )
+
+
+@openclaw.command("replay")
+@click.option(
+    "--fixture",
+    type=click.Path(exists=True),
+    default="tests/fixtures/openclaw_replay_suite.jsonl",
+    show_default=True,
+)
+@click.option("--verbose", "-v", is_flag=True)
+def openclaw_replay(fixture: str, verbose: bool) -> None:
+    """Run the frozen OpenClaw replay suite."""
+    from detrix.openclaw.replay import run_replay_suite
+
+    report = run_replay_suite(fixture)
+    click.echo(
+        f"Replay suite: {report.passed}/{report.total} passed "
+        f"({report.regressions} regressions)"
+    )
+    click.echo(f"Promotion allowed: {str(report.promotion_allowed).lower()}")
+    if verbose:
+        for case in report.cases:
+            status = "PASS" if case.passed else "FAIL"
+            click.echo(
+                f"  [{status}] {case.case_id}: expected={case.expected_decision} "
+                f"actual={case.actual_decision} reasons={case.actual_reason_codes}"
+            )
+    if not report.promotion_allowed:
+        raise click.ClickException("OpenClaw replay regressions detected")
+
+
+@openclaw.command("show-admissions")
+@click.option("--db", default=".detrix/evidence.db", help="Path to evidence.db")
+@click.option("--limit", default=10, type=int, show_default=True)
+def openclaw_show_admissions(db: str, limit: int) -> None:
+    """Show recent OpenClaw admission decisions."""
+    from detrix.runtime.trajectory_store import TrajectoryStore
+
+    trajectories = TrajectoryStore(db).query(domain="openclaw", limit=limit)
+    _print_openclaw_admissions(trajectories)
+
+
+@openclaw.command("demo")
+@click.argument("trace_path", type=click.Path(exists=True))
+@click.option("--db", default=".detrix/openclaw-demo.db", help="Path to evidence.db")
+@click.option("--output-dir", "-o", default=".detrix/openclaw-demo", help="Export directory")
+@click.option(
+    "--fixture",
+    type=click.Path(exists=True),
+    default="tests/fixtures/openclaw_replay_suite.jsonl",
+    show_default=True,
+)
+@click.option("--max-length", default=2000, type=int, show_default=True)
+@click.option("--max-paragraph", default=500, type=int, show_default=True)
+@click.option("--limit", default=None, type=int)
+@click.option("--verbose", "-v", is_flag=True)
+def openclaw_demo(
+    trace_path: str,
+    db: str,
+    output_dir: str,
+    fixture: str,
+    max_length: int,
+    max_paragraph: int,
+    limit: int | None,
+    verbose: bool,
+) -> None:
+    """Run digest, admission, replay, and routed export for the YC demo."""
+    from detrix.improvement.exporter import TrainingExporter
+    from detrix.openclaw.replay import run_replay_suite
+    from detrix.openclaw.trace_digest import digest_openclaw_traces
+    from detrix.runtime.trajectory_store import TrajectoryStore
+
+    store = TrajectoryStore(db)
+    summary = digest_openclaw_traces(
+        trace_path,
+        store=store,
+        config={"max_length": max_length, "max_paragraph_chars": max_paragraph},
+        limit=limit,
+    )
+    replay_report = run_replay_suite(fixture)
+    exports = TrainingExporter(store).export_routed(output_dir, domain="openclaw")
+
+    click.echo("Detrix OpenClaw Reliability Harness")
+    click.echo("=" * 40)
+    _print_openclaw_summary(summary.decisions, summary.failure_patterns, summary.total)
+    routes = _route_counts(summary.trajectories)
+    click.echo()
+    click.echo("Training routes:")
+    click.echo(f"  SFT:       {routes.get('sft', 0)}")
+    click.echo(f"  DPO:       {routes.get('dpo', 0)}")
+    click.echo(f"  Eval-only: {routes.get('eval_only', 0)}")
+    click.echo()
+    click.echo("Admission contract portability:")
+    click.echo(
+        "  OpenClaw: fields training_route/replay_status/promotion_eligible populated"
+    )
+    click.echo("  AgentXRD: same GovernedTrajectory optional field structure available")
+    click.echo()
+    click.echo(
+        f"Replay suite: {replay_report.passed}/{replay_report.total} passed "
+        f"({replay_report.regressions} regressions)"
+    )
+    click.echo()
+    click.echo("Export:")
+    for route, path in exports.items():
+        click.echo(f"  {route.upper():<9s} {path} ({_line_count(path)} rows)")
+    if verbose:
+        click.echo()
+        _print_openclaw_admissions(store.query(domain="openclaw", limit=10))
+
+
+def _print_openclaw_summary(
+    decisions: dict[str, int], failure_patterns: dict[str, int], total: int
+) -> None:
+    click.echo(f"Traces digested: {total}")
+    for decision in ("accept", "caution", "reject", "request_more_data"):
+        count = decisions.get(decision, 0)
+        pct = (count / total * 100.0) if total else 0.0
+        click.echo(f"  {decision.upper():<17s} {count:4d} ({pct:4.0f}%)")
+    click.echo("Top failure patterns:")
+    for index, (reason, count) in enumerate(
+        sorted(failure_patterns.items(), key=lambda item: (-item[1], item[0]))[:5],
+        start=1,
+    ):
+        click.echo(f"  {index}. {reason:<35s} ({count})")
+
+
+def _route_counts(trajectories: list[Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for trajectory in trajectories:
+        route = trajectory.training_route or "unknown"
+        counts[route] = counts.get(route, 0) + 1
+    return counts
+
+
+def _print_openclaw_admissions(trajectories: list[Any]) -> None:
+    click.echo(f"{'TRAJECTORY':<36s} {'ROUTE':<10s} {'REPLAY':<8s} {'PROMOTE':<8s}")
+    for trajectory in trajectories:
+        click.echo(
+            f"{trajectory.trajectory_id:<36s} "
+            f"{trajectory.training_route or '-':<10s} "
+            f"{trajectory.replay_status or '-':<8s} "
+            f"{str(trajectory.promotion_eligible):<8s}"
+        )
+
+
 @cli.command("train")
 @click.option("--backend", type=click.Choice(["sft", "grpo"]), default="sft", help="Training backend")
 @click.option("--model", "model_name", required=True, help="Model name or local path")

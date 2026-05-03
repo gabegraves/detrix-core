@@ -98,6 +98,45 @@ class TrainingExporter:
         self.store.mark_exported(exported_positive_ids)
         return str(path)
 
+    def export_routed(
+        self,
+        output_dir: str,
+        domain: str | None = None,
+        limit: int | None = None,
+    ) -> dict[str, str]:
+        """Export trajectories by their portable admission training_route field."""
+        trajectories = self.store.query(domain=domain, limit=limit)
+        root = Path(output_dir)
+        root.mkdir(parents=True, exist_ok=True)
+        paths = {
+            "sft": root / "routed.sft.jsonl",
+            "dpo": root / "routed.dpo.jsonl",
+            "grpo": root / "routed.grpo.jsonl",
+            "eval_only": root / "routed.eval_only.jsonl",
+        }
+        exported_ids: list[str] = []
+        with (
+            paths["sft"].open("w", encoding="utf-8") as sft,
+            paths["dpo"].open("w", encoding="utf-8") as dpo,
+            paths["grpo"].open("w", encoding="utf-8") as grpo,
+            paths["eval_only"].open("w", encoding="utf-8") as eval_only,
+        ):
+            for trajectory in trajectories:
+                route = trajectory.training_route or (
+                    "eval_only" if trajectory.rejection_type else "sft"
+                )
+                if route == "sft":
+                    sft.write(json.dumps(trajectory.to_sft_row()) + "\n")
+                    grpo.write(json.dumps(trajectory.to_grpo_row()) + "\n")
+                    exported_ids.append(trajectory.trajectory_id)
+                elif route == "dpo":
+                    dpo.write(json.dumps(_dpo_row_from_trajectory(trajectory)) + "\n")
+                    exported_ids.append(trajectory.trajectory_id)
+                else:
+                    eval_only.write(json.dumps(trajectory.model_dump(mode="json")) + "\n")
+        self.store.mark_exported(exported_ids)
+        return {route: str(path) for route, path in paths.items()}
+
     def to_dataset(
         self,
         format: str,
@@ -144,3 +183,21 @@ class TrainingExporter:
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         return path
+
+
+def _dpo_row_from_trajectory(trajectory: Any) -> dict[str, str]:
+    chosen = _suggest_rewrite(trajectory.completion)
+    return {
+        "prompt": trajectory.prompt,
+        "chosen": chosen,
+        "rejected": trajectory.completion,
+    }
+
+
+def _suggest_rewrite(text: str) -> str:
+    if "•" in text and "\n•" not in text:
+        parts = [part.strip() for part in text.split("•") if part.strip()]
+        if len(parts) > 1:
+            return parts[0] + "\n" + "\n".join(f"• {part}" for part in parts[1:])
+    paragraphs = [text[i : i + 500].strip() for i in range(0, len(text), 500)]
+    return "\n\n".join(part for part in paragraphs if part)

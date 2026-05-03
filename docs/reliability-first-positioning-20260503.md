@@ -42,7 +42,34 @@ agent output
   -> optional training signal
 ```
 
-This is reliability first. Learning is optional and downstream.
+This is reliability first. Learning is downstream, but it should use both good
+and bad traces. The admission layer decides the route: clean positives can teach
+desired behavior; wrong outputs can become DPO negatives, RL penalties,
+abstention examples, replay tests, failure classes, or next-action cases.
+
+## Capture Model
+
+Borrow the useful part of Orchestra Research's Agent-Native Research Artifacts
+approach: capture the full branching trajectory, not only the polished winning
+path. Their ARA format separates human overview, logic, executable source/config,
+trace graph, dead ends, pivots, and evidence. That maps cleanly to Detrix, but
+Detrix adds admission decisions and training-route policy.
+
+Detrix capture should preserve:
+
+- `overview`: human-readable task, goal, and current state
+- `logic`: claims, assumptions, constraints, decision criteria, and expected
+  evidence
+- `execution`: tools, configs, inputs, environment, model/prompt/skill versions
+- `trace`: full action graph, retries, dead ends, pivots, and unchanged-evidence
+  loops
+- `evidence`: raw outputs, logs, metrics, artifacts, hashes, and provenance
+- `admission`: gate verdicts, reason codes, training route, next action, replay
+  status, and promotion eligibility
+
+The key difference from ARA: Detrix is not only preserving research knowledge.
+It is deciding which captured objects are allowed to become production state,
+training rows, replay fixtures, or promoted policies.
 
 ## Positioning
 
@@ -205,7 +232,9 @@ The customer onboarding promise should become:
 
 ## Relationship To Training And RL
 
-Training is a consequence of reliable admission, not the starting point.
+Training is a consequence of reliable admission, not the starting point. Failed
+or wrong traces should still feed improvement when their route is explicit. The
+unsafe move is learning from every trace as if it were a positive outcome.
 
 Product ladder:
 
@@ -231,4 +260,3 @@ The correct framing:
 
 > Detrix governs which agent-produced state transitions are admissible. Some
 > admitted transitions become training signal.
-

@@ -7,6 +7,13 @@ Detrix is the reliability/admission harness: the agent proposes, Detrix decides 
 be sent, accepted, retried, remembered, trained on, or promoted.
 RL environments and training exports are downstream outputs of that harness, not the
 product identity.
+Wrong and failed traces are still learning assets when routed correctly. Do not
+turn wrong outputs into positives or promotion evidence, but do preserve them as
+DPO negatives, RL penalties, abstention examples, replay tests, failure classes,
+and governed next-action cases.
+Capture should preserve the full branching agent-native artifact: logic,
+assumptions, configs, tools, outputs, dead ends, pivots, raw evidence, gate
+verdicts, admission route, replay status, and promotion eligibility.
 
 ## Design Doc
 

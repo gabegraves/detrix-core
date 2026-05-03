@@ -33,8 +33,14 @@ to train on.
 Detrix is the admission layer for reliable agents. The agent proposes a state
 transition. Detrix captures the trace and evidence, runs deterministic and
 domain-specific gates, emits an admission decision, routes the next bounded
-action, saves replay fixtures, and exports training signal only when the trace is
-safe to learn from.
+action, saves replay fixtures, and exports training signal only through the
+route that is safe for that trace.
+
+"Safe to learn from" does not mean "only learn from correct outputs." Wrong
+traces are often the highest-value signal. Detrix prevents them from becoming
+false positives, accepted evidence, or promoted behavior, then routes them into
+the right improvement channel: DPO-negative, RL penalty, abstention example,
+failure-class replay, regression test, or governed next-action case.
 
 The product is not another agent runtime, workflow tool, eval dashboard, or RL
 trainer. It is the harness plus gates plus trace-evaluation loop that decides
@@ -46,9 +52,13 @@ A Detrix domain pack contains:
 
 - evidence schemas for the artifacts that matter
 - deterministic gates for domain, provenance, policy, and safety checks
+- capture schema for the full branching trajectory: assumptions, configs,
+  tools, outputs, dead ends, pivots, evidence, and gate verdicts
 - failure taxonomy and reason codes
 - admission decisions such as accept, reject, request more data, rewrite,
   eval-only, SFT-positive, DPO-negative, RL reward, or excluded
+- training-route policy that separates positive learning, negative learning,
+  replay-only evidence, and hard-excluded contaminated traces
 - governed next actions with budgets and stop conditions
 - replay cases for accepted and rejected historical examples
 - promotion rules for prompts, skills, policies, gates, models, and checkpoints
@@ -56,6 +66,12 @@ A Detrix domain pack contains:
 
 The deeper asset can become an RL environment. The immediate product is governed
 production reliability.
+
+Capture should borrow from the ARA pattern: keep the full agent-native artifact,
+not just the cleaned-up success narrative. For Detrix that means every domain
+run should preserve logic, executable context, trace graph, dead ends, pivots,
+and evidence, then add the missing reliability layer: admission verdicts,
+training route, next action, replay status, and promotion eligibility.
 
 ## Demo Sequence
 
@@ -103,6 +119,12 @@ Honest v0 claim:
 
 > Detrix prevents unsafe scientific traces from becoming accepted outputs or
 > training data, and produces structured failure labels for later improvement.
+
+More precise version:
+
+> Detrix prevents wrong scientific traces from becoming positives, while still
+> using them as negatives, abstention cases, replay tests, and next-action
+> examples.
 
 Do not claim the local model has self-improved until held-out replay proves
 before/after improvement without precision regression.
@@ -156,6 +178,12 @@ This compounds with use. Each failed run becomes a sharper eval, a safer
 negative, or a better abstention example. Each clean accepted run becomes a
 positive. Each model, prompt, skill, policy, or gate update is replayed against
 the boundary before promotion.
+
+The goal is not to discard bad traces. The goal is to stop route contamination:
+a wrong accept must not become an SFT positive, a support-only trace must not
+become production truth, and an unjoinable trace must not train a model as if its
+outcome were known. Those traces still improve the system when admitted to the
+right negative, replay, or diagnostic lane.
 
 ## What Not To Pitch
 

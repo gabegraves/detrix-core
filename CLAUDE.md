@@ -2,6 +2,12 @@
 
 Make domain-specific agents reliable enough to deploy and cheap enough to scale.
 
+Agents fail when outputs are allowed to become production state without enough evidence.
+Detrix is the reliability/admission harness: the agent proposes, Detrix decides what can
+be sent, accepted, retried, remembered, trained on, or promoted.
+RL environments and training exports are downstream outputs of that harness, not the
+product identity.
+
 ## Design Doc
 
 Full strategy, competitive analysis, positioning, and build plan:
@@ -29,6 +35,9 @@ For this week, use `docs/yc-customer-discovery-sprint-2026-04-27.md` as the sour
 Governance and self-correction layer built on top of the pi agent harness (pi.dev).
 Reliability first → governed self-correction second → frontier-quality local models third.
 
+**Transition-admission rule:** Detrix is not only observability for agent traces. Treat every durable memory, skill, policy, evidence, promotion, or training/export change as a proposed state transition. Agents may propose transitions; Detrix admits or rejects them under explicit domain policy, replay, provenance, and safety gates. Rejected transitions should become governed next actions, not silent drift or dead ends.
+
+
 - Built ON TOP of pi's agent harness — pi provides agent loop, tools, sessions, providers;
   Detrix provides governance gates, scoring, training, improvement, domain packs
 - Governs autoresearch/self-correction loops: diagnose failure, choose an allowed next action, respect policy and resource limits, run bounded experiments, compare evidence delta, and stop safely
@@ -36,6 +45,7 @@ Reliability first → governed self-correction second → frontier-quality local
   does not wrap agent tools or constrain action space
 - NOT a methodology company, NOT a DAG executor, NOT a training UI, NOT a consulting agency
 - Unsloth/ART handle training execution (complementary). Detrix provides the quality SIGNAL.
+- Domain gates can become verifiable reward functions for domain-specific training, but the buyer-facing product is reliability/admission first.
 - AgentXRD_v2 is the proving ground (6 gates already post-hoc). detrix-core is the extraction target.
 - Target: self-improving, deterministically scored harness running local models (Qwen 3.6 via vLLM)
 - Distribution: `pi install npm:@detrix/governance` — governance on existing pi setup
@@ -58,6 +68,12 @@ IMPROVE: export only governed eval/training rows; promote only through holdout g
 ### Moat
 
 The moat is not the judge model, deterministic glue code, or fine-tuning loop. Those are copyable. The moat is domain reliability infrastructure that compounds: benchmark surfaces, failure taxonomies, gate semantics, provenance and promotion policies, evidence-delta ledgers, calibration curves, and governed traces.
+
+Each domain gate can emit reward signal for training, but the product is broader than
+RLVR. Detrix owns the admission boundary around durable state changes: production outputs,
+evidence promotion, skill/policy updates, memory writes, training rows, and checkpoint
+promotion. Training algorithms are commodity; the defensible asset is the validated
+domain decision boundary that decides what is safe to accept, retry, promote, or learn from.
 
 ### Deterministic-First Hierarchy
 

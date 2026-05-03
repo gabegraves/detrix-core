@@ -161,6 +161,50 @@ Expanded rule after the PydanticAI comparison:
 
 Do not say Detrix can do something a user with PydanticAI and Codex cannot do at the framework level. Say Detrix gives them the validated domain gates, replay corpus, provenance rules, promotion packets, and training eligibility labels they would otherwise have to invent, calibrate, and maintain themselves.
 
+## Reliability-First Update - 2026-05-03
+
+Detrix should be positioned as a production-agent reliability layer, not as an
+RL environment company.
+
+Core identity:
+
+> Detrix makes production agents reliable by governing what their outputs are
+> allowed to change.
+
+Every meaningful agent output proposes a state transition: send a message,
+update memory, accept scientific evidence, place a trade, change policy, promote
+a skill, export a training row, or deploy a checkpoint. Detrix admits, rewrites,
+retries, blocks, requests more data, or promotes that transition under explicit
+evidence gates and replay policy.
+
+RL environments and training exports are downstream consequences of this
+admission layer. They are not the product identity.
+
+Near-term proof ladder:
+
+1. OpenClaw readable-output admission: can this Telegram message be sent?
+2. AgentXRD scientific-evidence admission: can this PXRD result become truth,
+   training data, or promotion evidence?
+3. ParabolaHunter economic-outcome admission: can this trading strategy, alert,
+   or policy be promoted?
+
+The OpenClaw readable-output gate should be the first demo because it is
+visually obvious, deterministic, repeatable, and does not require domain
+education. It should show prompting failing, Detrix enforcing readability after
+generation, replay cases being saved, and future formatter/prompt/skill changes
+requiring replay before promotion.
+
+Scaling rule:
+
+> Do not scale by hand-building gates for every customer. Scale by turning each
+> real failure into a replay-tested admission-pack component.
+
+The reusable software is trace intake, joinability audit, failure mining, gate
+proposal, replay validation, admission decisions, training-route compilation,
+and promotion gating. The custom surface should be domain examples, thresholds,
+gate logic, and consequences, with experts validating boundaries rather than
+labeling every trace.
+
 ## Local Qwen 3.6 Proof Requirement
 
 The next product proof should show Detrix working around a local Qwen 3.6-class agent or challenger.

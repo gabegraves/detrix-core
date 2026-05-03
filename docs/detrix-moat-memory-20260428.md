@@ -315,3 +315,107 @@ profile provenance, sample allowlist, matched CIF provenance, and replayable pol
 
 Blocked transitions should become `GovernedNextAction` rows, not dead ends. This preserves
 self-correction while preventing unsafe drift.
+
+## Telegram Gate Memory - Product Boundary Update (2026-05-02)
+
+The OpenClaw Telegram formatting failure is the simplest non-scientific example of the
+Detrix thesis:
+
+> Instructions are advisory. Gates are enforceable.
+
+The user repeatedly told the model to emit human-readable Telegram topic messages, but the
+model kept compressing pseudo-bullets into one dense paragraph. The correct fix is not a
+better prompt or a skill alone. The correct fix is a deterministic outbound gate at the
+Telegram send boundary:
+
+```text
+model output
+-> telegram_readability_gate
+-> pass / rewrite / block with fallback
+-> sendMessage
+```
+
+For this case:
+
+- **Harness:** OpenClaw Telegram gateway.
+- **Task:** produce a human-readable Telegram topic reply.
+- **Gate:** validate/rewrite spacing, bullet newlines, length, tables, code dumps, and fallback behavior.
+- **Reward:** pass if the message is Telegram-readable; reject or rewrite if it is dense, malformed, or overlong.
+- **Trace:** original model output, gate decision, rewritten/admitted output, and delivery result.
+- **Training data:** bad dense paragraph paired with admitted readable message.
+
+A skill can document the desired behavior. A hook can provide the delivery mechanism. The
+gate is the product primitive because it deterministically admits, rewrites, or blocks the
+state transition before it reaches the user.
+
+This is a good public analogy because everyone understands it: "I told the model to format
+Telegram messages. It ignored me. Detrix made the formatting contract enforceable." The
+AgentXRD version is the same pattern with higher stakes: "I told the model to be
+scientifically careful. It guessed. Detrix made the scientific contract enforceable."
+
+### Product Boundary
+
+Detrix should not try to own every harness. The harness is how the agent runs:
+
+- OpenClaw;
+- pi;
+- LangGraph;
+- Claude Code;
+- Codex;
+- custom Telegram bots;
+- AgentXRD.
+
+Detrix's product is the governed environment generated around that harness:
+
+- tasks and replay cases;
+- deterministic gates;
+- failure taxonomy;
+- admissible next actions;
+- reward labels;
+- training/export eligibility;
+- promotion rules;
+- evidence ledgers.
+
+The concise product identity is:
+
+> Detrix is a failure-to-environment compiler for agents.
+
+Given failed traces, user goals, examples, artifacts, operational constraints, and domain
+rules, Detrix should produce deterministic gates, replayable evals, reward functions,
+bounded next actions, training/export labels, and promotion criteria.
+
+### Anti-Commoditization Memory
+
+Do not say the non-commoditized asset is:
+
+- the generic harness;
+- a prompt hook;
+- a formatting skill;
+- a deterministic script by itself;
+- a Qwen/Claude/Codex judge;
+- a fine-tuning loop.
+
+Those are copyable implementation pieces. The durable asset is the compounding environment
+state created by repeated deployment:
+
+- observed failure modes;
+- accepted/rejected replay cases;
+- gate semantics that survived historical replay;
+- policy-approved rewrite/block/next-action behavior;
+- evidence of which gates overfit or underfit;
+- training rows with admission labels;
+- promotion tests that prevent regressions;
+- domain/operator-specific calibration.
+
+In the Telegram example, a competitor can copy a newline formatter. They cannot copy the
+customer's accumulated communication policy, failure corpus, topic-specific formatting
+regressions, accepted/rejected examples, and replay suite. In AgentXRD, the same principle
+is stronger: a competitor can copy a gate shape, but not the accumulated PXRD failure
+taxonomy, provenance decisions, calibration evidence, wrong-ACCEPT history, support-only
+boundaries, and governed training eligibility corpus.
+
+The moat is therefore not "we have gates." The moat is:
+
+> Detrix turns repeated operational failures into validated environments that become harder
+> to reproduce with every admitted trace, replay, calibration update, and promotion
+> decision.

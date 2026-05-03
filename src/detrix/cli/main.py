@@ -667,6 +667,168 @@ def openclaw_demo(
         _print_openclaw_admissions(store.query(domain="openclaw", limit=10))
 
 
+@openclaw.command("generate-proof")
+@click.argument("cases", type=click.Path(exists=True))
+@click.option("--model", "model_name", required=True, help="Base model or local adapter path")
+@click.option("--adapter", "adapter_path", default=None, help="Optional adapter path to load")
+@click.option("--output", "output_path", required=True, help="Generated output JSONL path")
+@click.option("--max-new-tokens", default=180, type=int, show_default=True)
+@click.option("--max-seq-length", default=2048, type=int, show_default=True)
+@click.option("--load-in-4bit", is_flag=True, help="Use 4-bit quantization")
+def openclaw_generate_proof(
+    cases: str,
+    model_name: str,
+    adapter_path: str | None,
+    output_path: str,
+    max_new_tokens: int,
+    max_seq_length: int,
+    load_in_4bit: bool,
+) -> None:
+    """Generate temperature-0 Qwen proof outputs for held-out cases."""
+    from detrix.openclaw.improvement_proof import (
+        generate_outputs_with_unsloth,
+        load_cases,
+        write_outputs,
+    )
+
+    proof_cases = load_cases(cases)
+    outputs = generate_outputs_with_unsloth(
+        proof_cases,
+        model_name=model_name,
+        adapter_path=adapter_path,
+        max_new_tokens=max_new_tokens,
+        max_seq_length=max_seq_length,
+        load_in_4bit=load_in_4bit,
+    )
+    path = write_outputs(output_path, outputs)
+    click.echo(f"Generated {len(outputs)} proof outputs: {path}")
+    click.echo("Decoding: greedy (temperature=0 equivalent; do_sample=false)")
+
+
+@openclaw.command("score-improvement")
+@click.argument("cases", type=click.Path(exists=True))
+@click.option("--model", "model_name", required=True, help="Base model path")
+@click.option("--adapter", "adapter_path", required=True, help="Challenger adapter path")
+@click.option("--min-loss-delta", default=0.01, type=float, show_default=True)
+@click.option("--max-seq-length", default=2048, type=int, show_default=True)
+@click.option("--load-in-4bit", is_flag=True, help="Use 4-bit quantization")
+@click.option("--json-output", "json_output", default=None, help="Optional report JSON path")
+def openclaw_score_improvement(
+    cases: str,
+    model_name: str,
+    adapter_path: str,
+    min_loss_delta: float,
+    max_seq_length: int,
+    load_in_4bit: bool,
+    json_output: str | None,
+) -> None:
+    """Compare baseline vs adapter target likelihood on held-out proof cases."""
+    from detrix.openclaw.improvement_proof import (
+        compare_target_scores,
+        load_cases,
+        score_targets_with_unsloth,
+    )
+
+    proof_cases = load_cases(cases)
+    baseline = score_targets_with_unsloth(
+        proof_cases,
+        model_name=model_name,
+        max_seq_length=max_seq_length,
+        load_in_4bit=load_in_4bit,
+        name="baseline",
+    )
+    challenger = score_targets_with_unsloth(
+        proof_cases,
+        model_name=model_name,
+        adapter_path=adapter_path,
+        max_seq_length=max_seq_length,
+        load_in_4bit=load_in_4bit,
+        name="challenger",
+    )
+    report = compare_target_scores(
+        baseline, challenger, min_loss_delta=min_loss_delta
+    )
+    if json_output:
+        output = Path(json_output)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(report.model_dump_json(indent=2) + "\n", encoding="utf-8")
+        click.echo(f"Report: {output}")
+
+    click.echo("OpenClaw Qwen Target-Likelihood Proof")
+    click.echo("=" * 42)
+    click.echo(f"baseline mean_loss:   {report.baseline.mean_loss:.4f}")
+    click.echo(f"challenger mean_loss: {report.challenger.mean_loss:.4f}")
+    click.echo(f"loss_delta:           {report.loss_delta:+.4f}")
+    click.echo(f"Proof type:           {report.proof_type}")
+    click.echo(f"Improved: {str(report.improved).lower()}")
+    click.echo("Promotion allowed: false (run eval-improvement for behavior promotion)")
+    if not report.improved:
+        raise click.ClickException("Adapter did not improve held-out target likelihood")
+
+
+@openclaw.command("eval-improvement")
+@click.argument("cases", type=click.Path(exists=True))
+@click.option("--baseline", "baseline_path", required=True, type=click.Path(exists=True))
+@click.option("--challenger", "challenger_path", required=True, type=click.Path(exists=True))
+@click.option("--min-gate-delta", default=0.05, type=float, show_default=True)
+@click.option("--max-paragraph", default=500, type=int, show_default=True)
+@click.option("--json-output", "json_output", default=None, help="Optional report JSON path")
+def openclaw_eval_improvement(
+    cases: str,
+    baseline_path: str,
+    challenger_path: str,
+    min_gate_delta: float,
+    max_paragraph: int,
+    json_output: str | None,
+) -> None:
+    """Compare baseline vs adapter outputs with deterministic gates."""
+    from detrix.openclaw.improvement_proof import (
+        compare_candidates,
+        evaluate_candidate,
+        load_cases,
+        load_outputs,
+        validate_output_coverage,
+    )
+
+    proof_cases = load_cases(cases)
+    gate_config = {"max_paragraph_chars": max_paragraph}
+    try:
+        baseline_outputs = load_outputs(baseline_path)
+        challenger_outputs = load_outputs(challenger_path)
+        validate_output_coverage(proof_cases, baseline_outputs)
+        validate_output_coverage(proof_cases, challenger_outputs)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    baseline = evaluate_candidate(
+        "baseline", proof_cases, baseline_outputs, gate_config=gate_config
+    )
+    challenger = evaluate_candidate(
+        "challenger", proof_cases, challenger_outputs, gate_config=gate_config
+    )
+    report = compare_candidates(
+        baseline, challenger, min_gate_delta=min_gate_delta, temperature=0.0
+    )
+    if json_output:
+        output = Path(json_output)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(report.model_dump_json(indent=2) + "\n", encoding="utf-8")
+        click.echo(f"Report: {output}")
+
+    click.echo("OpenClaw Qwen Improvement Proof")
+    click.echo("=" * 36)
+    _print_candidate_metrics(report.baseline)
+    _print_candidate_metrics(report.challenger)
+    click.echo("Deltas:")
+    for name, value in report.metric_deltas.items():
+        click.echo(f"  {name:<24s} {value:+.3f}")
+    click.echo(f"Temperature: {report.temperature:.1f} ({report.decoding})")
+    click.echo(f"Improved: {str(report.improved).lower()}")
+    click.echo(f"Precision regression: {str(report.precision_regression).lower()}")
+    click.echo(f"Promotion allowed: {str(report.promotion_allowed).lower()}")
+    if not report.promotion_allowed:
+        raise click.ClickException("Adapter did not clear improvement proof")
+
+
 def _print_openclaw_summary(
     decisions: dict[str, int], failure_patterns: dict[str, int], total: int
 ) -> None:
@@ -689,6 +851,19 @@ def _route_counts(trajectories: list[Any]) -> dict[str, int]:
         route = trajectory.training_route or "unknown"
         counts[route] = counts.get(route, 0) + 1
     return counts
+
+
+def _print_candidate_metrics(candidate: Any) -> None:
+    click.echo(f"{candidate.name}:")
+    click.echo(f"  total:                  {candidate.total}")
+    click.echo(f"  accept_rate:            {candidate.accept_rate:.3f}")
+    click.echo(f"  caution_rate:           {candidate.caution_rate:.3f}")
+    click.echo(f"  reject_rate:            {candidate.reject_rate:.3f}")
+    click.echo(f"  mean_gate_score:        {candidate.mean_gate_score:.3f}")
+    click.echo(f"  expected_contains_rate: {candidate.expected_contains_rate:.3f}")
+    click.echo(f"  forbidden_absent_rate:  {candidate.forbidden_absent_rate:.3f}")
+    if candidate.reason_counts:
+        click.echo(f"  reasons:                {candidate.reason_counts}")
 
 
 def _print_openclaw_admissions(trajectories: list[Any]) -> None:

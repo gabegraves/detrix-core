@@ -36,7 +36,15 @@ class TrainingConfig(BaseModel):
     lora_alpha: int = 32
     lora_dropout: float = 0.05
     lora_target_modules: list[str] = Field(
-        default_factory=lambda: ["q_proj", "k_proj", "v_proj", "o_proj"]
+        default_factory=lambda: [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ]
     )
 
     eval_split: float = 0.1

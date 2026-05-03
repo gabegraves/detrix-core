@@ -42,7 +42,7 @@ class DetrixSFTTrainer:
             "You are a domain expert agent. Produce accurate structured output "
             "that passes governance gates.<|im_end|>\n"
             f"<|im_start|>user\n{row['prompt']}<|im_end|>\n"
-            f"<|im_start|>assistant\n{row['completion']}<|im_end|>"
+            f"<|im_start|>assistant\n{row['completion']}<|im_end|>\n"
         )
 
     def load_dataset(self) -> Any:
@@ -115,8 +115,14 @@ class DetrixSFTTrainer:
 
         metrics: dict[str, float] = {}
         if eval_dataset is not None:
-            eval_metrics = trainer.evaluate()
-            metrics = {k: v for k, v in eval_metrics.items() if isinstance(v, float)}
+            try:
+                eval_metrics = trainer.evaluate()
+                metrics = {k: v for k, v in eval_metrics.items() if isinstance(v, float)}
+            except RuntimeError as exc:
+                if "out of memory" not in str(exc).lower():
+                    raise
+                logger.warning("Skipping post-train evaluation after CUDA OOM: %s", exc)
+                metrics = {"eval_oom": 1.0}
 
         final_loss = float(getattr(train_result, "training_loss", 0.0) or 0.0)
         return TrainingResult(
@@ -144,7 +150,7 @@ class DetrixSFTTrainer:
                 logging_steps=self.config.logging_steps,
                 save_steps=self.config.save_steps,
                 save_total_limit=2,
-                bf16=True,
+                bf16=self._bf16_supported(),
                 seed=self.config.seed,
                 report_to="none",
                 eval_strategy="steps" if has_eval else "no",
@@ -165,9 +171,19 @@ class DetrixSFTTrainer:
                 logging_steps=self.config.logging_steps,
                 save_steps=self.config.save_steps,
                 save_total_limit=2,
-                bf16=True,
+                bf16=self._bf16_supported(),
                 seed=self.config.seed,
                 report_to="none",
                 eval_strategy="steps" if has_eval else "no",
                 eval_steps=self.config.save_steps if has_eval else None,
             )
+
+    @staticmethod
+    def _bf16_supported() -> bool:
+        """Enable bf16 only on CUDA devices that explicitly support it."""
+        try:
+            import torch
+
+            return bool(torch.cuda.is_available() and torch.cuda.is_bf16_supported())
+        except Exception:
+            return False

@@ -1,12 +1,12 @@
-# AgentXRD_v2 Langfuse Reliability Pack Execution Plan
+# AgentXRD_v2 Transition Admission Pack Execution Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to execute this plan task-by-task. Keep Langfuse advisory, AgentXRD deterministic artifacts authoritative, and no model-improvement claims without held-out replay proof.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to execute this plan task-by-task. Keep Langfuse advisory, AgentXRD deterministic artifacts authoritative, and no model-improvement claims without held-out replay proof. The external product object is the Materials Characterization Admission Pack, not a Langfuse reliability dashboard.
 
 **Status:** consensus execution plan produced on 2026-05-04 from `.omx/context/agentxrd-v2-langfuse-reliability-pack-20260504T083359Z.md` plus read-only subagent repository/DB inspection.
 
-**Goal:** Turn AgentXRD_v2 deterministic artifacts plus Mission Control Langfuse process traces into a repeatable Detrix reliability pack that shows what happened, why rows were accepted/blocked/abstained, what next actions are policy-allowed, and whether any proposed transition is admissible for training, replay, or promotion.
+**Goal:** Turn AgentXRD_v2 deterministic artifacts plus Mission Control Langfuse process traces into a repeatable Detrix **Transition Admission Pack** that answers: what durable transition was proposed, what evidence supports it, what consequences were requested, what consequences are allowed, what is blocked, whether the row can train, and what replay/promotion proof exists.
 
-**Product outcome for YC:** A demoable AgentXRD reliability pack where Detrix is not another trace viewer: Langfuse shows process traces; Detrix admits or rejects state transitions under deterministic scientific evidence, provenance, replay, and promotion gates.
+**Product outcome for YC:** A demoable Materials Characterization Admission Pack where Detrix prevents unsupported AI-generated phase claims, unjoinable traces, and unsafe rows from becoming accepted lab state or training data. Langfuse shows process traces; Detrix admits or rejects consequences under deterministic scientific evidence, provenance, replay, and promotion gates.
 
 ---
 
@@ -93,15 +93,19 @@ Every row in the reliability pack should carry:
 
 ### Pack artifact contract
 
-Add a canonical artifact:
+Add canonical artifacts:
 
-- `reliability_pack.json`
+- `reliability_pack.json` / buyer-facing Materials Characterization Admission Pack
+- `transition_admissions.jsonl` / row-level transition ledger
+- `allowed_consequences.jsonl` and `blocked_consequences.jsonl` / what the verdict permits
+
+`reliability_pack.json`
 
 Minimum shape:
 
 ```json
 {
-  "schema_version": "agentxrd_reliability_pack_v0.1",
+  "schema_version": "agentxrd_transition_admission_pack_v0.1",
   "generated_at": "ISO-8601",
   "domain": "AgentXRD_v2",
   "pack_inputs": {"binary20_artifact": "...", "mission_control_db": "..."},
@@ -109,6 +113,21 @@ Minimum shape:
     "deterministic_agentxrd_authoritative": true,
     "langfuse_advisory_only": true,
     "model_proposals_advisory_only": true
+  },
+  "risk_constraints": {
+    "max_false_accepts": 0,
+    "max_support_only_promotions": 0,
+    "max_unsafe_sft_positive_rows": 0,
+    "max_promotion_regressions": 0,
+    "min_replay_cases_for_promotion": 30
+  },
+  "risk_metrics": {
+    "false_accept_count": 0,
+    "support_only_promotion_count": 0,
+    "unsafe_sft_positive_count": 0,
+    "promotion_regression_count": 0,
+    "accepted_coverage": 0.0,
+    "abstention_count": 17
   },
   "summary": {
     "agentxrd_row_count": 20,
@@ -121,6 +140,9 @@ Minimum shape:
     "promotion_allowed": false
   },
   "rows": [],
+  "transition_admissions_ref": "transition_admissions.jsonl",
+  "allowed_consequences_ref": "allowed_consequences.jsonl",
+  "blocked_consequences_ref": "blocked_consequences.jsonl",
   "failure_pattern_summary_ref": "failure_pattern_summary.json",
   "next_actions_ref": "governed_next_actions.jsonl",
   "provenance_ref": "provenance_dag.jsonl",
@@ -133,7 +155,7 @@ Minimum shape:
 
 ## Implementation Tasks
 
-### Task 1 — Add reliability pack schema and writer
+### Task 1 — Add transition admission pack schema and writer
 
 **Bead:** create/claim a child of `detrix-core-vyv` when executing.
 
@@ -146,8 +168,8 @@ Minimum shape:
 
 **Requirements:**
 
-- Build `AgentXRDReliabilityPack` and `AgentXRDReliabilityPackRow` Pydantic schemas.
-- After `build-harness-evidence`, write `reliability_pack.json` alongside existing artifacts.
+- Build `AgentXRDReliabilityPack`, `AgentXRDReliabilityPackRow`, and `AgentXRDTransitionAdmission` Pydantic schemas.
+- After `build-harness-evidence`, write `reliability_pack.json`, `transition_admissions.jsonl`, `allowed_consequences.jsonl`, and `blocked_consequences.jsonl` alongside existing artifacts.
 - Summarize counts without ambiguity:
   - `agentxrd_row_count`: deterministic AgentXRD sample rows only.
   - `failure_pattern_row_count`: all failure-pattern rows, including unjoinable advisory Langfuse rows.
@@ -162,6 +184,7 @@ Minimum shape:
 - Pack count fields map unambiguously to underlying artifacts: `agentxrd_row_count` from deterministic packet rows, `failure_pattern_row_count` from `failure_pattern_summary.row_count`, and Langfuse joinability from normalized observations/failure summary.
 - Pack promotion and replay fields match `promotion_packet.json` and `drift_replay_report.json`.
 - Pack declares deterministic AgentXRD authority and Langfuse advisory-only semantics.
+- Pack exposes explicit risk constraints and risk metrics for false accepts, support-only promotions, unsafe SFT positives, promotion regressions, accepted coverage, and abstentions.
 
 ### Task 2 — Make Langfuse joinability explicit
 
@@ -228,7 +251,8 @@ Minimum shape:
 | Precedence | Condition | Admission decision | Required leading reason |
 | --- | --- | --- | --- |
 | 1 | wrong-accept risk or deterministic safety violation | `HARD_STOP` | `wrong_accept_risk` or exact safety violation |
-| 2 | `support_only=true`, `accept_eligible=false`, truth-blocked, provisional, or `must_not_promote=true` | `EVAL_ONLY` | the matching promotion boundary |
+| 2a | `support_only=true` | `SUPPORT_ONLY` | `support_only` |
+| 2b | `accept_eligible=false`, truth-blocked, provisional, or `must_not_promote=true` | `EVAL_ONLY` | the matching promotion boundary |
 | 3 | missing required scientific evidence or unjoinable scientific packet | `REQUEST_MORE_DATA` | `missing_required_evidence` |
 | 4 | deterministic export label is not training-positive | `EVAL_ONLY` | `not_training_positive` |
 | 5 | deterministic row is accepted and training-positive with replay-safe promotion packet | `ACCEPT` or `SET` | `deterministic_gate_passed` |
@@ -238,6 +262,7 @@ Minimum shape:
 
 **Acceptance:**
 
+- Rows with `support_only=true` keep the domain admission decision `SUPPORT_ONLY` while training route remains `eval_only`; the domain state and training route are not collapsed.
 - Rows with `support_only=true` are blocked from training positive.
 - Rows with `accept_eligible=false` are blocked from training positive.
 - Truth-blocked/provisional rows are blocked from training positive.
@@ -312,6 +337,61 @@ uv run detrix agentxrd replay-report /tmp/detrix-agentxrd-reliability-pack --for
 - Synthetic joined/unjoinable traces are represented with separate joinability counts.
 - Optional local smoke retains current Langfuse traces as advisory/process evidence and reports them as unjoinable unless sample ids are present.
 
+
+### Task 7 — Add transition admission ledger and consequence semantics
+
+**Files:**
+
+- `src/detrix/agentxrd/reliability_pack.py`
+- `tests/test_agentxrd_reliability_pack.py`
+
+**Requirements:**
+
+- Emit `transition_admissions.jsonl` with `transition_id`, `transition_type`, `proposer`, `proposal`, `evidence_packet_ref`, `domain_policy_version`, `gate_verdicts`, `replay_status`, `admission_decision`, `allowed_consequences`, `blocked_consequences`, `training_eligibility`, `reason_codes`, and `promotion_record_ref`.
+- Emit `allowed_consequences.jsonl` and `blocked_consequences.jsonl`.
+- Consequence vocabulary includes `MAY_UPDATE_LAB_STATE`, `MAY_STORE_EVAL_ONLY`, `MAY_EXPORT_SFT_POSITIVE`, `MAY_EXPORT_DPO_NEGATIVE`, `MAY_TRIGGER_NEXT_EXPERIMENT`, `MAY_PROMOTE_GATE`, `MAY_PROMOTE_MODEL`, `MUST_REQUEST_MORE_DATA`, `MUST_HUMAN_REVIEW`, and `DIAGNOSTIC_ONLY`.
+
+**Acceptance:**
+
+- Every row has an admission ledger row and explicit allowed/blocked consequences.
+- Unjoinable Langfuse traces are advisory-only and cannot allow lab-state update, SFT-positive export, or promotion.
+- Clean synthetic positive fixtures can show an admitted path without claiming current real AgentXRD artifacts have safe SFT positives.
+
+### Task 8 — Add candidate promotion replay semantics
+
+**Files:**
+
+- `src/detrix/agentxrd/reliability_pack.py`
+- `src/detrix/agentxrd/drift_replay.py` if deeper incumbent/candidate fields are needed
+- Tests around `drift_replay_report.json` and `promotion_packet.json` readback
+
+**Requirements:**
+
+- The pack must expose incumbent-vs-candidate replay status, deltas, block reasons, and promotion decision.
+- A candidate that creates a false ACCEPT remains blocked.
+- A candidate may only promote when replay proves no precision regression under risk constraints.
+
+**Acceptance:**
+
+- CLI `replay-report` prints before/after metrics, deltas, release block status, and promotion block reasons.
+- Markdown and JSON formats preserve the same promotion facts for Mission Control/readback.
+
+### Task 9 — Add buyer-facing admission report / UI contract
+
+**Files:**
+
+- `docs/agentxrd-v2-transition-admission-pack-ui-contract-20260504.md`
+
+**Requirements:**
+
+- Document how a user/Mission Control reads `reliability_pack.json`, `transition_admissions.jsonl`, consequence ledgers, next actions, replay report, and promotion packet.
+- Include buyer-facing sections: what was safe to accept, what was blocked, what needs more data, what is support-only, what can train the local model, what must be excluded, what traces are unjoinable/advisory, and what production gate should be installed first.
+
+**Acceptance:**
+
+- The contract uses admission/product language, not Langfuse-as-center language.
+- Demo copy says: “Langfuse shows what happened. Detrix decides what is safe to learn from.”
+
 ---
 
 ## Review Gates
@@ -338,12 +418,13 @@ After each implementation task:
 
 ## Demo Script Narrative
 
-1. Start with AgentXRD_v2 seed artifacts: 20 rows, 3 SET / 17 UNKNOWN, no wrong accepts.
+1. Start with AgentXRD_v2 seed artifacts: 20 rows, current real pack remains fail-closed with no wrong accepts.
 2. Import Mission Control Langfuse cache: process traces retained, but no sample join keys today.
-3. Detrix emits failure patterns and explicit unjoinable trace evidence instead of pretending traces are labels.
-4. Detrix proposes allowed next actions with kill criteria.
-5. Detrix writes a promotion packet and replay report; promotion remains blocked because no SFT-positive rows are safe yet.
-6. Mission Control can render the pack: Langfuse shows what happened; Detrix decides what is safe to learn from.
+3. Detrix emits transition admissions and explicit unjoinable trace evidence instead of pretending traces are labels.
+4. Detrix shows allowed and blocked consequences: eval-only/replay fixture allowed; lab-state update, unsafe SFT export, and promotion blocked.
+5. Synthetic fixture demonstrates the positive path: clean deterministic evidence can be admitted while support-only evidence and unjoinable traces are rejected/request-more-data.
+6. Detrix writes a promotion packet and replay report; promotion remains blocked for real unsafe/no-positive rows until held-out replay proves no precision regression.
+7. Mission Control can render the pack: Langfuse shows what happened; Detrix decides what is safe to learn from.
 
 ---
 

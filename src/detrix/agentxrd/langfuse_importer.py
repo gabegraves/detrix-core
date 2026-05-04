@@ -19,7 +19,9 @@ class LangfuseImportReport(BaseModel):
     normalized_observation_count: int
     project: str
     project_aliases: list[str]
+    joinable_trace_count: int
     unjoinable_trace_count: int
+    missing_join_key_reasons: dict[str, int]
     live_enabled: bool
     advisory_only: bool = True
 
@@ -41,11 +43,13 @@ def import_agentxrd_langfuse_traces(
         normalized_observation_count=len(observations),
         project=project,
         project_aliases=_project_aliases(project),
+        joinable_trace_count=sum(1 for obs in observations if obs.get("sample_id")),
         unjoinable_trace_count=sum(
             1
             for obs in observations
             if str(obs.get("join_status", "")).startswith("unjoinable")
         ),
+        missing_join_key_reasons=_missing_join_key_reasons(observations),
         live_enabled=source.live_enabled,
     )
 
@@ -104,10 +108,26 @@ def _normalize_trace(row: dict[str, Any]) -> dict[str, Any]:
         "output_tokens": row.get("output_tokens") or 0,
         "sample_id": sample_id,
         "join_status": "joined" if sample_id else "unjoinable_cache_summary",
+        "missing_join_key_reason": None
+        if sample_id
+        else "metadata_missing_sample_id_or_agentxrd_sample_id",
         "failure_hint": failure_hint,
         "metadata": metadata,
         "advisory_only": True,
     }
+
+
+def _missing_join_key_reasons(observations: list[dict[str, Any]]) -> dict[str, int]:
+    reasons: dict[str, int] = {}
+    for observation in observations:
+        if observation.get("sample_id"):
+            continue
+        reason = str(
+            observation.get("missing_join_key_reason")
+            or "metadata_missing_sample_id_or_agentxrd_sample_id"
+        )
+        reasons[reason] = reasons.get(reason, 0) + 1
+    return reasons
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:

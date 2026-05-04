@@ -93,11 +93,51 @@ def test_agentxrd_harness_cli_emits_required_artifacts(tmp_path):
         "provenance_dag.jsonl",
         "promotion_packet.json",
         "drift_replay_report.json",
+        "reliability_pack.json",
+        "transition_admissions.jsonl",
+        "allowed_consequences.jsonl",
+        "blocked_consequences.jsonl",
     ]:
         assert (tmp_path / name).exists()
     packet = json.loads((tmp_path / "promotion_packet.json").read_text())
     assert packet["promote"] is False
     summary = json.loads((tmp_path / "failure_pattern_summary.json").read_text())
     assert summary["langfuse_observation_count"] == 1
+    assert summary["joinable_langfuse_trace_count"] == 0
     assert summary["unjoinable_langfuse_trace_count"] == 1
     assert summary["unjoinable_langfuse_trace_patterns"]["AgentXRD_v2 session"] == 1
+    assert summary["missing_join_key_reasons"][
+        "metadata_missing_sample_id_or_agentxrd_sample_id"
+    ] == 1
+    pack = json.loads((tmp_path / "reliability_pack.json").read_text())
+    assert pack["buyer_facing_name"] == "Materials Characterization Admission Pack"
+    assert pack["summary"]["agentxrd_row_count"] == 20
+    assert pack["summary"]["unjoinable_langfuse_trace_count"] == 1
+    assert pack["risk_constraints"]["max_false_accepts"] == 0
+
+    show_pack = runner.invoke(cli, ["agentxrd", "show-pack", str(tmp_path)])
+    assert show_pack.exit_code == 0, show_pack.output
+    assert "Materials Characterization Admission Pack" in show_pack.output
+    assert "authority=advisory_only" in show_pack.output
+
+    show_actions = runner.invoke(
+        cli, ["agentxrd", "show-next-actions", str(tmp_path), "--limit", "2"]
+    )
+    assert show_actions.exit_code == 0, show_actions.output
+    assert "allowed_commands" in show_actions.output
+    assert "training_blocked=true" in show_actions.output
+
+    replay_json = runner.invoke(
+        cli, ["agentxrd", "replay-report", str(tmp_path), "--format", "json"]
+    )
+    assert replay_json.exit_code == 0, replay_json.output
+    assert json.loads(replay_json.output)["promotion_allowed"] is False
+
+
+def test_agentxrd_pack_inspection_fails_closed_when_artifact_missing(tmp_path):
+    runner = CliRunner()
+
+    result = runner.invoke(cli, ["agentxrd", "show-pack", str(tmp_path)])
+
+    assert result.exit_code != 0
+    assert "Required artifact missing" in result.output

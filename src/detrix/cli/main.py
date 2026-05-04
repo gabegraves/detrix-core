@@ -314,6 +314,7 @@ def _build_agentxrd_harness_evidence(
         build_promotion_packet,
     )
     from detrix.agentxrd.provenance import build_agentxrd_provenance_dag
+    from detrix.agentxrd.reliability_pack import build_agentxrd_reliability_pack
 
     output_dir.mkdir(parents=True, exist_ok=True)
     import_agentxrd_langfuse_traces(
@@ -390,11 +391,131 @@ def _build_agentxrd_harness_evidence(
         output_path=output_dir / "drift_replay_report.json",
         proposed_metrics={"sft_positive_count": summary.sft_positive_count},
     )
+    pack = build_agentxrd_reliability_pack(
+        output_dir=output_dir,
+        pack_inputs={
+            "binary20_artifact": binary20_artifact,
+            "row_packets": row_packets,
+            "trace_packet_map": trace_packet_map,
+            "router_decisions": router_decisions,
+            "router_summary": router_summary,
+            "mission_control_db": mission_control_db,
+        },
+    )
     return {
         **summary.model_dump(),
         "promotion_packet": packet.model_dump(),
         "drift_replay": drift.model_dump(),
+        "reliability_pack": pack.model_dump(),
     }
+
+
+@agentxrd.command("show-pack")
+@click.argument("output_dir", type=click.Path(path_type=Path))
+def agentxrd_show_pack(output_dir: Path) -> None:
+    """Show the AgentXRD transition admission pack summary."""
+    pack = _read_required_json(output_dir / "reliability_pack.json")
+    summary = pack.get("summary", {})
+    risk_metrics = pack.get("risk_metrics", {})
+    risk_constraints = pack.get("risk_constraints", {})
+    click.echo(pack.get("buyer_facing_name", "AgentXRD Admission Pack"))
+    click.echo(f"Domain: {pack.get('domain', 'AgentXRD_v2')}")
+    click.echo(
+        "Rows: "
+        f"AgentXRD={summary.get('agentxrd_row_count', 0)}; "
+        f"failure-patterns={summary.get('failure_pattern_row_count', 0)}"
+    )
+    click.echo(
+        "Langfuse: "
+        f"observations={summary.get('langfuse_observation_count', 0)}; "
+        f"joined={summary.get('joinable_langfuse_trace_count', 0)}; "
+        f"unjoinable={summary.get('unjoinable_langfuse_trace_count', 0)}; "
+        "authority=advisory_only"
+    )
+    click.echo(
+        "Promotion: "
+        f"allowed={str(summary.get('promotion_allowed', False)).lower()}; "
+        f"blocked_by={summary.get('promotion_block_reasons', [])}"
+    )
+    click.echo(
+        "Risk contract: "
+        f"false_accepts={risk_metrics.get('false_accept_count', 0)}/"
+        f"{risk_constraints.get('max_false_accepts', 0)}; "
+        f"unsafe_sft={risk_metrics.get('unsafe_sft_positive_count', 0)}/"
+        f"{risk_constraints.get('max_unsafe_sft_positive_rows', 0)}; "
+        f"abstentions={risk_metrics.get('abstention_count', 0)}"
+    )
+    click.echo(f"Admissions: {summary.get('admission_decision_counts', {})}")
+    click.echo(f"Top blockers: {summary.get('top_blocker_classes', {})}")
+
+
+@agentxrd.command("show-next-actions")
+@click.argument("output_dir", type=click.Path(path_type=Path))
+@click.option("--limit", type=int, default=10, show_default=True)
+def agentxrd_show_next_actions(output_dir: Path, limit: int) -> None:
+    """Show policy-allowed AgentXRD next actions."""
+    rows = _read_required_jsonl(output_dir / "governed_next_actions.jsonl")
+    for row in rows[:limit]:
+        click.echo(
+            f"{row.get('sample_id')}: blocker={row.get('blocker_class')} "
+            f"action={row.get('action_type')} training_blocked="
+            f"{str(row.get('training_export_blocked', True)).lower()}"
+        )
+        commands = ", ".join(str(item) for item in row.get("allowed_commands", []))
+        click.echo(f"  allowed_commands: {commands}")
+        click.echo(f"  kill_criteria: {'; '.join(row.get('kill_criteria', []))}")
+        click.echo(f"  expected_delta: {row.get('expected_evidence_delta')}")
+
+
+@agentxrd.command("replay-report")
+@click.argument("output_dir", type=click.Path(path_type=Path))
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["text", "json", "md"]),
+    default="text",
+    show_default=True,
+)
+def agentxrd_replay_report(output_dir: Path, fmt: Literal["text", "json", "md"]) -> None:
+    """Show AgentXRD incumbent-vs-candidate replay/promotion status."""
+    report = _read_required_json(output_dir / "drift_replay_report.json")
+    promotion = _read_required_json(output_dir / "promotion_packet.json")
+    payload = {
+        "before": report.get("before", {}),
+        "after": report.get("after", {}),
+        "deltas": report.get("deltas", {}),
+        "release_blocked": report.get("release_blocked", True),
+        "release_block_reasons": report.get("block_reasons", []),
+        "promotion_allowed": promotion.get("promote", False),
+        "promotion_block_reasons": promotion.get("block_reasons", []),
+    }
+    if fmt == "json":
+        click.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    if fmt == "md":
+        click.echo("# AgentXRD Replay Report")
+        click.echo()
+        click.echo(f"- Release blocked: `{str(payload['release_blocked']).lower()}`")
+        click.echo(f"- Promotion allowed: `{str(payload['promotion_allowed']).lower()}`")
+        click.echo(f"- Release block reasons: `{payload['release_block_reasons']}`")
+        click.echo(f"- Promotion block reasons: `{payload['promotion_block_reasons']}`")
+        click.echo(f"- Deltas: `{payload['deltas']}`")
+        click.echo()
+        click.echo(
+            "Referenced artifacts: `drift_replay_report.json`, `promotion_packet.json`."
+        )
+        return
+    click.echo(
+        f"Release blocked: {str(payload['release_blocked']).lower()} "
+        f"reasons={payload['release_block_reasons']}"
+    )
+    click.echo(
+        f"Promotion allowed: {str(payload['promotion_allowed']).lower()} "
+        f"reasons={payload['promotion_block_reasons']}"
+    )
+    click.echo(f"Before: {payload['before']}")
+    click.echo(f"After: {payload['after']}")
+    click.echo(f"Deltas: {payload['deltas']}")
 
 
 @cli.command()
@@ -514,6 +635,28 @@ def _print_governed_run(run_data: dict[str, Any], trajectories: list[Any]) -> No
 def _line_count(path: str) -> int:
     with open(path, encoding="utf-8") as file:
         return sum(1 for _ in file)
+
+
+def _read_required_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise click.ClickException(f"Required artifact missing: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise click.ClickException(f"Expected JSON object artifact: {path}")
+    return cast(dict[str, Any], payload)
+
+
+def _read_required_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        raise click.ClickException(f"Required artifact missing: {path}")
+    rows = [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    if not all(isinstance(row, dict) for row in rows):
+        raise click.ClickException(f"Expected JSONL object artifact: {path}")
+    return cast(list[dict[str, Any]], rows)
 
 
 @cli.group("openclaw")

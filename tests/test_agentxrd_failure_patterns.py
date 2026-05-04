@@ -71,6 +71,7 @@ def test_build_failure_pattern_corpus_merges_langfuse_observation_hints(tmp_path
     )
 
     assert summary.langfuse_observation_count == 1
+    assert summary.joinable_langfuse_trace_count == 1
     assert summary.langfuse_failure_hint_counts["context-window"] == 1
     rows = [
         json.loads(line)
@@ -110,8 +111,12 @@ def test_build_failure_pattern_corpus_keeps_unjoinable_langfuse_patterns(tmp_pat
     )
 
     assert summary.langfuse_observation_count == 1
+    assert summary.joinable_langfuse_trace_count == 0
     assert summary.unjoinable_langfuse_trace_count == 1
     assert summary.unjoinable_langfuse_trace_patterns["cache_summary_trace"] == 1
+    assert summary.missing_join_key_reasons[
+        "metadata_missing_sample_id_or_agentxrd_sample_id"
+    ] == 1
     rows = [
         json.loads(line)
         for line in (output_dir / "failure_patterns.jsonl").read_text().splitlines()
@@ -121,5 +126,7 @@ def test_build_failure_pattern_corpus_keeps_unjoinable_langfuse_patterns(tmp_pat
         row["sample_id"] == "unjoinable:trace-cache-1"
         and row["high_level_bucket"] == "LANGFUSE_TRACE_UNJOINABLE"
         and row["deterministic_export_label"] == "eval_only"
+        and row["langfuse_join_status"] == "unjoinable_cache_summary"
+        and row["advisory_only"] is True
         for row in rows
     )

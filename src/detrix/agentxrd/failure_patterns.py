@@ -27,6 +27,8 @@ class FailurePatternRow(BaseModel):
     judge_recommendation: str | None = None
     judge_gate_classification: str | None = None
     deterministic_export_label: str
+    langfuse_join_status: str = "missing"
+    advisory_only: bool = False
     source_artifacts: list[str] = Field(default_factory=list)
 
 
@@ -40,9 +42,11 @@ class FailurePatternSummary(BaseModel):
     judge_over_promote_count: int
     sft_positive_count: int
     langfuse_observation_count: int
+    joinable_langfuse_trace_count: int = 0
     langfuse_failure_hint_counts: dict[str, int] = Field(default_factory=dict)
     unjoinable_langfuse_trace_count: int = 0
     unjoinable_langfuse_trace_patterns: dict[str, int] = Field(default_factory=dict)
+    missing_join_key_reasons: dict[str, int] = Field(default_factory=dict)
     trace_cache_miss_reason: str | None = None
     advisory_sources: list[str]
     deterministic_gates_authoritative: bool
@@ -118,6 +122,10 @@ def build_failure_pattern_corpus(
                 deterministic_export_label=str(
                     recon.get("final_training_export_label", "eval_only")
                 ),
+                langfuse_join_status=str(observation.get("join_status", "missing"))
+                if observation
+                else "missing",
+                advisory_only=False,
                 source_artifacts=[
                     str(binary20_artifact),
                     str(row_packets),
@@ -150,6 +158,10 @@ def build_failure_pattern_corpus(
                 low_level_bucket=failure_hint,
                 reason_codes=["unjoinable_langfuse_cache_summary"],
                 deterministic_export_label="eval_only",
+                langfuse_join_status=str(
+                    observation.get("join_status", "unjoinable_cache_summary")
+                ),
+                advisory_only=True,
                 source_artifacts=[str(normalized_observations)]
                 if normalized_observations
                 else [],
@@ -164,6 +176,14 @@ def build_failure_pattern_corpus(
     failure_hint_counts = Counter(
         str(obs.get("failure_hint") or obs.get("status") or "unknown")
         for obs in observations
+    )
+    missing_join_key_reasons = Counter(
+        str(
+            obs.get("missing_join_key_reason")
+            or "metadata_missing_sample_id_or_agentxrd_sample_id"
+        )
+        for obs in observations
+        if not obs.get("sample_id")
     )
     unjoinable_counts = Counter(
         row.low_level_bucket
@@ -185,9 +205,11 @@ def build_failure_pattern_corpus(
             1 for row in rows if row.deterministic_export_label == "sft_positive"
         ),
         langfuse_observation_count=len(observations),
+        joinable_langfuse_trace_count=sum(1 for obs in observations if obs.get("sample_id")),
         langfuse_failure_hint_counts=dict(failure_hint_counts),
         unjoinable_langfuse_trace_count=sum(unjoinable_counts.values()),
         unjoinable_langfuse_trace_patterns=dict(unjoinable_counts),
+        missing_join_key_reasons=dict(missing_join_key_reasons),
         trace_cache_miss_reason=None
         if observations
         else "no Mission Control Langfuse cache rows matched the selected AgentXRD project aliases",

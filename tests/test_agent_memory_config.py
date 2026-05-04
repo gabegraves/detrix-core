@@ -21,4 +21,20 @@ def test_repo_exposes_memoria_mcp_server() -> None:
     assert "../agent_memory/scripts/memoria_mcp_server.py" in memoria.get("args", [])
 
     target = (REPO_ROOT / memoria["args"][0]).resolve()
-    assert target.exists(), "repo-local memoria MCP target should resolve to agent_memory"
+    if target.exists():
+        return
+
+    is_isolated_superpowers_worktree = (
+        Path.home() / ".config" / "superpowers" / "worktrees"
+    ) in REPO_ROOT.parents
+    assert is_isolated_superpowers_worktree, (
+        "repo-local memoria MCP target should resolve from the checkout root; "
+        f"missing target: {target}"
+    )
+
+    canonical_repo_root = Path.home() / "Desktop" / "detrix-core"
+    canonical_target = (canonical_repo_root / memoria["args"][0]).resolve()
+    assert canonical_target.exists(), (
+        "isolated superpowers worktrees use the canonical Desktop checkout sibling; "
+        f"missing canonical target: {canonical_target}"
+    )

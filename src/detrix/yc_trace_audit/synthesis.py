@@ -64,13 +64,6 @@ def render_playbook(
         ]
     )
     for finding in accepted:
-        if finding.role == "reviewer" and finding.distance_to_goal == "unknown":
-            lines.append(
-                f"- `{finding.finding_id}` ({finding.role}, unknown) mechanically covers "
-                f"{len(finding.unit_ids)} no-signal units for project `{finding.project_id}`; "
-                f"first_units={', '.join(finding.unit_ids[:5])}"
-            )
-            continue
         cited_units = ", ".join(finding.unit_ids)
         citations = ", ".join(finding.evidence)
         lines.append(f"- `{finding.finding_id}` ({finding.role}, {finding.distance_to_goal}) units={cited_units}; evidence={citations}")

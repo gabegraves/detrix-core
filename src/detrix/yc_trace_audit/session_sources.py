@@ -8,7 +8,7 @@ import sqlite3
 from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from detrix.yc_trace_audit.projects import AUDIT_WINDOW, project_for_path, project_for_text
 from detrix.yc_trace_audit.schema import SourceKind, SourceRecord
@@ -151,8 +151,8 @@ def _jsonl_path_to_source(path: Path) -> SourceRecord | None:
 
 
 def _merge_metadata(target: dict[str, Any], obj: dict[str, Any]) -> None:
-    payload = cast(dict[str, Any], obj.get("payload")) if isinstance(obj.get("payload"), dict) else {}
-    message = cast(dict[str, Any], obj.get("message")) if isinstance(obj.get("message"), dict) else {}
+    payload = obj.get("payload") if isinstance(obj.get("payload"), dict) else {}
+    message = obj.get("message") if isinstance(obj.get("message"), dict) else {}
     content = message.get("content") if isinstance(message, dict) else None
     candidates = {
         "cwd": obj.get("cwd") or payload.get("cwd") or obj.get("current_working_directory"),

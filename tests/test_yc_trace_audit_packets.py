@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import json
-import sqlite3
 from pathlib import Path
 
 from click.testing import CliRunner
 
 from detrix.cli.main import cli
 from detrix.yc_trace_audit.schema import AuditUnit
+import json
+import sqlite3
+
 
 
 def _write_sample_mission_control_db(tmp_path: Path) -> Path:

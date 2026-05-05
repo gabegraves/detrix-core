@@ -1,9 +1,24 @@
 ---
 name: Detrix
-last_updated: 2026-05-03
+last_updated: 2026-05-05
 ---
 
 # Detrix Strategy
+
+
+## Current strategic direction: bead-native harness compiler
+
+Detrix's current product direction is a bead-native harness compiler for agent
+execution. Raw sessions are converted into atomic beads; builder agents execute one
+bead and emit structured claims; verifier agents try to falsify those claims;
+recurring failures become typed failure patterns; harness mutations are proposed;
+and only replay-safe mutations are promoted.
+
+The moat is not generic observability, generic governance, generic memory, or generic
+fine-tuning. The moat is evaluator-aligned promotion: a harness change must improve
+held-out project beads without weakening hard gates such as AgentXRD support-only
+boundaries or ParabolaHunter real-priced evidence requirements. See
+`docs/bead-native-harness-compiler-20260505.md`.
 
 ## Target problem
 

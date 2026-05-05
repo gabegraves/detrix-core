@@ -1,8 +1,10 @@
 # detrix
 
-**Make any AI agent pipeline reproducible, governed, and self-improving.**
+**Turn failed agent sessions into replay-safe harness improvements.**
 
-Agents are black boxes. They forget between sessions. They don't improve over time. Swapping models is a nightmare. Detrix fixes all four.
+Detrix converts raw agent traces into atomic execution beads, verifies the claims and artifacts for each bead, mines recurring failure patterns, and promotes only harness changes that improve held-out replay without weakening domain gates.
+
+> Current direction: see `docs/bead-native-harness-compiler-20260505.md`. The older pipeline runtime remains useful seed infrastructure, but the product direction is the bead-native builder/verifier harness compiler.
 
 ## Install
 

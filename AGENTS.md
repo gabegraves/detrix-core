@@ -4,7 +4,9 @@
 
 **Read before any strategic work:** `~/.gstack/projects/gabegraves-detrix-core/gabriel-main-design-20260331-022621.md`
 
-**Active weekly directive through the YC on-time deadline on 2026-05-04:** `docs/yc-customer-discovery-sprint-2026-04-27.md`
+**Current strategic direction after 2026-05-05:** `docs/bead-native-harness-compiler-20260505.md` — bead-native builder/verifier harness compiler, raw-trace failure mining, replay-gated harness promotion, and clean-repo split recommendation.
+
+**Historical YC directive through the now-past 2026-05-04 deadline:** `docs/yc-customer-discovery-sprint-2026-04-27.md`
 
 Contains: positioning, competitive landscape, architecture (with Stripe/Anthropic patterns), existing asset map, testing plan, monetization model, agent-as-FDE scaling, hiring timeline, and 14-day sprint plan.
 
@@ -15,7 +17,9 @@ Contains: positioning, competitive landscape, architecture (with Stripe/Anthropi
 
 ## Product Context
 
-For this week, prioritize customer discovery, commitments, and demo proof for the 2026-05-04 YC deadline. Before strategy, outreach, demo, or prospect-research work, read `docs/yc-customer-discovery-sprint-2026-04-27.md` and keep recommendations aligned to it.
+Detrix's current north star is a bead-native harness compiler: extract recurring failure patterns from prior agent sessions, convert them into atomic bead contracts, run builder/verifier loops, propose harness mutations, and promote only changes that improve held-out bead suites without weakening domain gates. Keep raw traces available; summaries alone are not enough for harness search.
+
+The 2026-05-04 YC deadline has passed. Treat `docs/yc-customer-discovery-sprint-2026-04-27.md` as historical strategy context, not the active north star, unless the user explicitly asks for YC/application or customer-discovery work.
 
 Governance and self-correction layer built on top of the pi agent harness (pi.dev).
 Reliability first → governed self-correction second → frontier-quality local models third.

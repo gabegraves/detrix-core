@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from detrix.yc_trace_audit.projects import AUDIT_WINDOW
 from detrix.yc_trace_audit.schema import AgentPacket, AgentRole, AuditUnit

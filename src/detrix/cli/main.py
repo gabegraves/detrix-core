@@ -1034,58 +1034,6 @@ def triage(traces_path: str, output: str | None, title: str, min_confidence: flo
         click.echo(report)
 
 
-@cli.group("yc-trace-audit")
-def yc_trace_audit() -> None:
-    """Run the YC trace audit harness."""
-
-
-@yc_trace_audit.command("extract")
-@click.option("--mission-control-db", type=click.Path(exists=True, path_type=Path), default=Path("/home/gabriel/.mission-control/data.db"), show_default=True)
-@click.option("--session-root", type=click.Path(path_type=Path), multiple=True)
-@click.option("--output-dir", type=click.Path(path_type=Path), default=Path("outputs/yc_trace_audit_20260505"), show_default=True)
-def yc_trace_audit_extract(mission_control_db: Path, session_root: tuple[Path, ...], output_dir: Path) -> None:
-    """Extract raw sources and linked audit units."""
-    from detrix.yc_trace_audit.runbook import extract_sources_and_units
-
-    paths = extract_sources_and_units(
-        mission_control_db=mission_control_db,
-        session_roots=list(session_root) if session_root else None,
-        output_dir=output_dir,
-    )
-    click.echo(f"Wrote coverage manifest: {paths['coverage_manifest']}")
-
-
-@yc_trace_audit.command("write-packets")
-@click.option("--output-dir", type=click.Path(path_type=Path), default=Path("outputs/yc_trace_audit_20260505"), show_default=True)
-def yc_trace_audit_write_packets(output_dir: Path) -> None:
-    """Write specialist and reviewer packet JSON."""
-    from detrix.yc_trace_audit.runbook import write_packets_from_manifest
-
-    paths = write_packets_from_manifest(output_dir=output_dir)
-    click.echo(f"Wrote {len(paths)} packets to {output_dir / 'agent_packets'}")
-
-
-@yc_trace_audit.command("review")
-@click.option("--output-dir", type=click.Path(path_type=Path), default=Path("outputs/yc_trace_audit_20260505"), show_default=True)
-def yc_trace_audit_review(output_dir: Path) -> None:
-    """Run deterministic finding coverage review."""
-    from detrix.yc_trace_audit.runbook import review_agent_findings
-
-    path = review_agent_findings(output_dir=output_dir)
-    click.echo(f"Wrote review report: {path}")
-
-
-@yc_trace_audit.command("synthesize")
-@click.option("--output-dir", type=click.Path(path_type=Path), default=Path("outputs/yc_trace_audit_20260505"), show_default=True)
-@click.option("--playbook-path", type=click.Path(path_type=Path), default=Path("docs/yc-process-playbook-2026-05-05.md"), show_default=True)
-def yc_trace_audit_synthesize(output_dir: Path, playbook_path: Path) -> None:
-    """Render the YC process playbook after reviewer approval."""
-    from detrix.yc_trace_audit.runbook import synthesize_playbook
-
-    path = synthesize_playbook(output_dir=output_dir, playbook_path=playbook_path)
-    click.echo(f"Wrote playbook: {path}")
-
-
 def main() -> None:
     cli()
 

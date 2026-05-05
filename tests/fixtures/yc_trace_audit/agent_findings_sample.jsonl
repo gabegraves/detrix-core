@@ -1,0 +1,1 @@
+{"finding_id":"sample-success","role":"success_patterns","unit_ids":["u1"],"project_id":"detrix-core","claim":"Closed with durable evidence","evidence":["unit:u1","session:test"],"distance_to_goal":"closed","confidence":"high","mental_model":"Admission Boundary Is the Detrix Product Signal"}
